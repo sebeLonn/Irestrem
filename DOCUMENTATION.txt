@@ -1,0 +1,641 @@
+================================================================================
+  IRESTREM — EYE STRAIN PREVENTION APPLICATION
+  Documentation v1.0
+================================================================================
+
+  A real-time screen-proximity monitor that tracks how close you sit to your
+  display and automatically schedules eye-rest reminders calibrated to your
+  posture — helping you follow the 20-20-20 rule effortlessly.
+
+================================================================================
+  TABLE OF CONTENTS
+================================================================================
+
+  1.  Overview
+  2.  Key Features
+  3.  System Requirements
+  4.  Installation
+  5.  Launching the Application
+  6.  User Interface Guide
+  7.  How It Works — Technical Architecture
+        7.1  Distance Detection Engine
+        7.2  Session Tracker
+        7.3  Notification System
+        7.4  Camera Pipeline
+        7.5  macOS Status Bar Integration
+  8.  The 20-20-20 Rule & Break Intervals
+  9.  Calibration
+  10. File Structure
+  11. Configuration Reference
+  12. Troubleshooting
+  13. Keyboard & Mouse Reference
+  14. Privacy & Data
+
+================================================================================
+  1. OVERVIEW
+================================================================================
+
+  Irestrem is a macOS desktop application written in Python. Using your Mac's
+  built-in camera, it continuously measures the distance between your face and
+  the screen. Based on that measurement, it dynamically adjusts how frequently
+  you should take eye-rest breaks and notifies you when the time comes.
+
+  The application runs as a standard macOS app (double-click to open, visible
+  in the Dock), and optionally displays a live countdown timer in the macOS
+  menu bar so you can monitor your break schedule at a glance without keeping
+  the main window open.
+
+  Core principle
+  --------------
+  The closer you sit to the screen, the more strain your eyes experience.
+  Irestrem reflects this by shortening the break interval when it detects you
+  are too close, and extending it when your distance is healthy. All processing
+  happens entirely on-device — no data ever leaves your computer.
+
+================================================================================
+  2. KEY FEATURES
+================================================================================
+
+  Distance-Aware Break Scheduling
+  --------------------------------
+  • Measures your distance from the screen in real time using the camera.
+  • Classifies your posture into four levels: Too Close, Close, Good, Far.
+  • Automatically adjusts the next break interval based on the dominant
+    posture detected over the last five minutes.
+
+  Live Camera Preview
+  -------------------
+  • Displays a mirrored camera feed with a colour-coded bounding box drawn
+    around your face.
+  • The box changes colour (red → orange → green → blue) to reflect your
+    current distance status.
+  • The estimated distance in centimetres is overlaid directly on the feed.
+
+  Break Countdown Timer
+  ----------------------
+  • A large MM:SS countdown shows how long until your next eye break.
+  • A progress bar fills as time passes.
+  • The timer turns orange when fewer than 60 seconds remain.
+
+  Eye Break Pop-up
+  ----------------
+  • When the countdown reaches zero, a full pop-up window appears on top of
+    all other windows and a macOS system notification is sent.
+  • The pop-up includes its own 20-second countdown.
+  • You can mark the break as done or skip it — either action resets the
+    main timer.
+
+  macOS Menu Bar Status Item
+  ---------------------------
+  • A "👁 MM:SS" label appears in the top-right menu bar while Irestrem runs.
+  • Updates every 250 ms so you can check your break schedule without
+    switching to the main window.
+  • Switches to "👁 REST Xs" format during an active break.
+  • Includes a Quit option in its menu.
+
+  Session Statistics
+  ------------------
+  • Tracks total session duration (hours and minutes).
+  • Counts how many breaks have been taken during the session.
+  • Reports your dominant posture average for the session.
+
+  One-Click Calibration
+  ----------------------
+  • The "Calibrate at 60 cm" button lets you improve distance accuracy by
+    providing a known reference measurement.
+  • Calibration adjusts the estimated camera focal length to match your
+    specific webcam.
+
+  Dark-Themed Custom Icon
+  -----------------------
+  • A procedurally generated dark-navy icon featuring an eye graphic
+    (matching the app's accent colour palette) is embedded in the .app bundle
+    in all required macOS icon sizes (16 × 16 through 1024 × 1024 px).
+
+  Resizable Window
+  ----------------
+  • The main window is fully resizable with a minimum size of 580 × 520 px.
+  • The camera preview scales to fill all available space while preserving
+    the 4:3 aspect ratio (letterboxed with the app's background colour).
+  • The info panel on the right maintains a fixed width so controls are
+    always visible.
+
+================================================================================
+  3. SYSTEM REQUIREMENTS
+================================================================================
+
+  Operating System   macOS 12 Monterey or later (tested on macOS 26.3)
+  Architecture       Apple Silicon (arm64) and Intel (x86_64) — universal build
+  Python             3.9 or later (3.14 recommended)
+  Camera             Any built-in or USB webcam supported by macOS AVFoundation
+  Disk Space         ~50 MB (including Python packages)
+  RAM                ~150 MB during normal use
+
+  Python packages required (installed automatically via requirements.txt):
+    opencv-python >= 4.8.0
+    numpy >= 1.24.0
+    Pillow >= 10.0.0
+    pyobjc-framework-Cocoa >= 9.0  (macOS only — enables menu bar status item)
+
+================================================================================
+  4. INSTALLATION
+================================================================================
+
+  Step 1 — Install Python dependencies
+  -------------------------------------
+  Open Terminal, navigate to the project folder, and run:
+
+      cd ~/Desktop/DataScienceMiniProject
+      pip3 install -r requirements.txt
+
+  This installs all required packages including OpenCV, Pillow, NumPy, and
+  PyObjC (for the menu bar integration).
+
+  Step 2 — Verify the app bundle
+  --------------------------------
+  The ready-to-use application bundle is located at:
+
+      DataScienceMiniProject/Irestrem.app
+
+  No compilation step is required for normal use. The bundle was built with
+  py2app in alias mode, which means it references your local Python
+  installation and the project source files directly.
+
+  Step 3 — Grant camera permission
+  ----------------------------------
+  macOS requires explicit camera permission on first launch. When Irestrem
+  starts for the first time, the system will display a permission dialog.
+  Click "Allow" to grant camera access.
+
+  If you missed the dialog or clicked "Deny":
+    1. Open System Settings → Privacy & Security → Camera.
+    2. Find "Terminal" or "Irestrem" in the list and enable the toggle.
+    3. Restart Irestrem.
+
+================================================================================
+  5. LAUNCHING THE APPLICATION
+================================================================================
+
+  Method A — Double-click (recommended)
+  ----------------------------------------
+  Open Finder → navigate to DataScienceMiniProject → double-click Irestrem.app.
+
+  First-launch security note: macOS Gatekeeper may show a warning because
+  the app is not signed with an Apple Developer certificate. To bypass it:
+    1. Right-click Irestrem.app → select "Open".
+    2. Click "Open" in the dialog that appears.
+  You only need to do this once. Subsequent launches work with a normal
+  double-click.
+
+  Method B — Terminal
+  --------------------
+      cd ~/Desktop/DataScienceMiniProject
+      python3 main.py
+
+  This is equivalent to launching from Finder and is useful during development
+  or troubleshooting because error output is visible in the terminal.
+
+================================================================================
+  6. USER INTERFACE GUIDE
+================================================================================
+
+  +------------------------------------------------------------------+
+  |  Irestrem                       ● Good distance                  |  ← Header
+  +------------------------------------+-----------------------------+
+  |                                    |  Distance to Screen         |
+  |                                    |         65 cm               |  ← Distance card
+  |                                    |-----------------------------|
+  |      Live Camera Preview           |  Next Eye Break             |
+  |   (face bounding box + distance)   |       18:42                 |  ← Countdown
+  |                                    |  [==========----------]     |  ← Progress bar
+  |                                    |  Interval: 20 min           |
+  |                                    |-----------------------------|
+  |                                    |  Session Stats              |
+  |                                    |  Duration: 1h 4m            |
+  |                                    |  Breaks taken: 3            |
+  |                                    |  Posture avg: Good distance |
+  +------------------------------------+-----------------------------|
+  |                                    |  [  Take a Break Now  ]     |  ← Break button
+  |                                    |  [ Calibrate at 60 cm ]     |  ← Calibration
+  +------------------------------------------------------------------+
+  |   20-20-20 rule: every 20 min, look 6 m away for 20 s           |  ← Footer
+  +------------------------------------------------------------------+
+
+  Header
+  -------
+  Displays the app name and the current status indicator (coloured dot + label).
+  The colour and text update in real time:
+    Red    → "Too close — move back!"   (< 40 cm)
+    Orange → "Slightly close"           (40–55 cm)
+    Green  → "Good distance"            (55–80 cm)
+    Blue   → "Good distance (far)"      (> 80 cm)
+    Grey   → "No face detected"
+
+  Distance to Screen card
+  ------------------------
+  Shows the estimated distance in centimetres. The number colour matches the
+  status colour above for quick visual recognition.
+
+  Next Eye Break card
+  --------------------
+  • MM:SS timer — counts down to the next scheduled break.
+  • Progress bar — fills from left (start) to right (break due).
+  • Interval label — shows the currently active break interval (8–25 min).
+
+  Session Stats card
+  -------------------
+  • Duration  — how long the current session has been running.
+  • Breaks taken — total breaks completed (skipped breaks are not counted).
+  • Posture avg — the dominant distance classification over the last 5 minutes.
+
+  Take a Break Now button
+  ------------------------
+  Immediately triggers a break regardless of the countdown state. Opens the
+  break pop-up window and resets the main timer after the break is done.
+
+  Calibrate at 60 cm button
+  --------------------------
+  Launches the calibration workflow (see Section 9).
+
+  Eye Break Pop-up
+  -----------------
+  When a break is triggered, a separate window appears on top of all other
+  windows. It contains:
+    • A 20-second countdown.
+    • Instructions to look at something 6 metres (20 feet) away.
+    • "Done — I took a break" → completes the break and resets the timer.
+    • "Skip" → dismisses the break and still resets the timer.
+
+  macOS Menu Bar
+  ---------------
+  A "👁 MM:SS" label appears in the top-right system menu bar. Clicking on it
+  reveals a menu with a single "Quit Irestrem" option.
+
+================================================================================
+  7. HOW IT WORKS — TECHNICAL ARCHITECTURE
+================================================================================
+
+  Irestrem is composed of five loosely coupled modules:
+
+      main.py       Entry point — imports and starts IrestremApp.
+      ui.py         Main application class; GUI, camera pipeline, state refresh.
+      detector.py   Face detection and distance estimation.
+      tracker.py    Session timing, break scheduling, status history.
+      notifier.py   Cross-platform system notification dispatcher.
+      app_icon.py   Icon generator — creates AppIcon.png and AppIcon.icns.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  7.1  Distance Detection Engine  (detector.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  Face Detection
+  ~~~~~~~~~~~~~~
+  Irestrem uses OpenCV's Haar cascade classifier
+  (haarcascade_frontalface_default.xml) to locate faces in each video frame.
+  Before detection, the frame is converted to greyscale and histogram-
+  equalised to improve robustness in varying lighting conditions.
+
+  Detection parameters:
+    scaleFactor   1.1   — how much image size is reduced at each scale
+    minNeighbors  5     — how many neighbours each rectangle must retain
+    minSize       60×60 — minimum face size to detect (filters noise)
+
+  Distance Estimation
+  ~~~~~~~~~~~~~~~~~~~~
+  Distance is calculated using the pinhole camera model:
+
+      distance (cm) = (KNOWN_FACE_WIDTH × FOCAL_LENGTH) / face_pixel_width
+
+  Where:
+    KNOWN_FACE_WIDTH  = 14.5 cm  (average adult face width)
+    FOCAL_LENGTH      = 600 px   (default; updated by calibration)
+    face_pixel_width  = width of the detected bounding box in pixels
+
+  The largest detected face is used when multiple faces appear in frame.
+
+  Status Classification
+  ~~~~~~~~~~~~~~~~~~~~~~
+    < 40 cm   →  too_close   (very high eye strain risk)
+    40–55 cm  →  close       (elevated eye strain risk)
+    55–80 cm  →  good        (recommended range)
+    > 80 cm   →  far         (excellent posture)
+    no face   →  no_face     (user not detected)
+
+  Performance Optimisation
+  ~~~~~~~~~~~~~~~~~~~~~~~~~
+  To reduce CPU load while maintaining smooth video, face detection runs every
+  second frame (configurable via DETECT_EVERY = 2 in ui.py). The annotation
+  (bounding box + distance label) from the last detection is drawn on every
+  frame, so the visual output remains fluid even when detection is throttled.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  7.2  Session Tracker  (tracker.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  SessionTracker maintains three pieces of state:
+
+    1. Break interval — derived from the dominant status over the last
+       5 minutes (stored as a rolling deque of up to 300 samples).
+
+    2. Countdown — the number of seconds remaining until the next break,
+       computed as:
+           remaining = (interval_minutes × 60) − (now − last_break_time)
+
+    3. Break state — whether a break is currently active, when it started,
+       and how many seconds of the 20-second rest remain.
+
+  Status history is sampled each time a new detection result arrives
+  (approximately once every 100 ms). The dominant status is determined by
+  selecting the mode of all samples in the deque — ensuring that brief
+  position changes do not immediately alter the break schedule.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  7.3  Notification System  (notifier.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  Notifications are dispatched via:
+    macOS    →  osascript "display notification …" with optional Ping sound
+    Linux    →  notify-send (if installed)
+    Windows  →  plyer.notification (if installed)
+
+  The notification message is tailored to the user's current dominant posture:
+    too_close  →  "You've been very close to the screen for N min. Move back!"
+    close      →  "You've been close to the screen for N min. Take a break!"
+    good       →  "20-20-20 break: look 20 feet away for 20 seconds."
+    far        →  "Great posture! Time for a 20-second eye break."
+    no_face    →  Generic break reminder.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  7.4  Camera Pipeline  (ui.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  The pipeline is split across two threads to prevent the macOS AVFoundation
+  camera backend from conflicting with Tkinter's NSRunLoop:
+
+  Background Thread (_camera_loop)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  • Opens cv2.VideoCapture(0) — camera init happens here, NOT on the main
+    thread, to avoid an NSRunLoop conflict that would cause a fatal crash.
+  • Reads frames as fast as the webcam allows (target: 30 fps).
+  • Runs face detection every DETECT_EVERY frames.
+  • Draws bounding box annotation using the last known detection result.
+  • Places raw BGR numpy arrays into a thread-safe queue (maxsize=3).
+
+  Main Thread (_poll, called via root.after every 33 ms)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  • Drains the queue and keeps only the latest frame.
+  • Converts the BGR numpy array → PIL Image → ImageTk.PhotoImage.
+    (PhotoImage MUST be created on the main thread to avoid Tk crashes.)
+  • Letterboxes the image to fit the current canvas size while preserving
+    the 4:3 aspect ratio.
+  • Updates the Canvas widget with the new photo.
+  • Calls _refresh_ui() to update all text labels and the menu bar item.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  7.5  macOS Status Bar Integration  (ui.py — _setup_status_bar)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  Irestrem uses PyObjC (pyobjc-framework-Cocoa) to create a native
+  NSStatusItem in the macOS system status bar. The implementation:
+
+    • Calls NSStatusBar.systemStatusBar().statusItemWithLength_() to allocate
+      a variable-width status item.
+    • Sets the title on the item's button via button().setTitle_().
+    • Attaches an NSMenu with a single "Quit Irestrem" item that calls
+      NSApplication's terminate: action.
+    • Updates the title on every _poll() cycle (every 33 ms) from the same
+      main thread, so no additional threading is required.
+
+  If pyobjc-framework-Cocoa is not installed, _setup_status_bar() silently
+  catches the ImportError and the application runs normally without the
+  status bar item.
+
+================================================================================
+  8. THE 20-20-20 RULE & BREAK INTERVALS
+================================================================================
+
+  The 20-20-20 rule, recommended by optometrists, states:
+    Every 20 minutes of screen time → look at something 20 feet (≈ 6 m) away
+    → for at least 20 seconds.
+
+  Irestrem adapts this rule dynamically based on your screen distance:
+
+  ┌──────────────────┬────────────┬──────────────────────────────────────────┐
+  │ Status           │ Distance   │ Break Interval   Rationale               │
+  ├──────────────────┼────────────┼──────────────────────────────────────────┤
+  │ Too Close        │ < 40 cm    │ Every  8 minutes  Very high strain risk   │
+  │ Close            │ 40–55 cm   │ Every 12 minutes  Elevated strain risk    │
+  │ Good (default)   │ 55–80 cm   │ Every 20 minutes  Standard 20-20-20 rule  │
+  │ Far              │ > 80 cm    │ Every 25 minutes  Excellent posture        │
+  │ No face          │ —          │ Every 20 minutes  Fallback default         │
+  └──────────────────┴────────────┴──────────────────────────────────────────┘
+
+  The interval in effect at any given moment is determined by your dominant
+  posture status over the rolling 5-minute history window. This prevents
+  momentary movements (leaning in briefly, looking down) from prematurely
+  triggering a change.
+
+  Each break consists of a 20-second eye rest. The application does not
+  enforce the rest — you choose to complete it or skip it. Skipped breaks
+  still reset the main countdown.
+
+================================================================================
+  9. CALIBRATION
+================================================================================
+
+  Why calibrate?
+  ---------------
+  Distance estimation relies on a known camera focal length. The default value
+  (600 px) approximates a typical built-in webcam at 640 × 480 resolution.
+  Different cameras (especially wide-angle or telephoto lenses) will produce
+  different pixel widths for the same physical face, leading to over- or
+  under-estimation of distance.
+
+  How to calibrate
+  -----------------
+  1. Place a ruler, tape measure, or marked object exactly 60 cm from the
+     front of your webcam lens.
+  2. Sit at that position with your face clearly visible to the camera.
+  3. Click "Calibrate at 60 cm" in the Irestrem interface.
+  4. Read the confirmation dialog and click OK.
+  5. Irestrem captures the current frame, detects your face, and computes:
+
+         FOCAL_LENGTH = (face_pixel_width × 60) / 14.5
+
+  6. All subsequent distance readings use this updated focal length.
+
+  The calibration value is not persisted between sessions. Recalibrate each
+  time you change webcam, camera mount, or display setup for best accuracy.
+
+================================================================================
+  10. FILE STRUCTURE
+================================================================================
+
+  DataScienceMiniProject/
+  ├── main.py              Entry point — creates and runs IrestremApp
+  ├── ui.py                Main application class (GUI, camera, status bar)
+  ├── detector.py          Face detection + distance estimation (OpenCV)
+  ├── tracker.py           Session timing, break scheduling, status history
+  ├── notifier.py          System notification dispatcher (macOS/Linux/Windows)
+  ├── app_icon.py          Programmatic icon generator (PNG + ICNS)
+  ├── setup.py             py2app build configuration
+  ├── requirements.txt     Python package dependencies
+  ├── AppIcon.icns         App icon (all macOS sizes, generated by app_icon.py)
+  ├── AppIcon.png          App icon source (512 × 512 px, used as window icon)
+  ├── Irestrem.app/        macOS application bundle (double-click to launch)
+  │   └── Contents/
+  │       ├── Info.plist          Bundle metadata, camera usage description
+  │       ├── MacOS/Irestrem      Compiled launcher (py2app Mach-O binary)
+  │       └── Resources/
+  │           ├── AppIcon.icns    Icon embedded in the bundle
+  │           ├── __boot__.py     py2app bootstrap script
+  │           └── lib/            Python environment reference (alias mode)
+  ├── dist/                py2app build output (source of Irestrem.app)
+  └── build/               py2app intermediate build artefacts
+
+================================================================================
+  11. CONFIGURATION REFERENCE
+================================================================================
+
+  The following constants in ui.py control core behaviour and can be adjusted
+  by editing the file directly:
+
+  ┌────────────────────┬─────────┬──────────────────────────────────────────┐
+  │ Constant           │ Default │ Description                              │
+  ├────────────────────┼─────────┼──────────────────────────────────────────┤
+  │ CAMERA_W           │ 320     │ Camera capture width (pixels)            │
+  │ CAMERA_H           │ 240     │ Camera capture height (pixels)           │
+  │ INFO_W             │ 240     │ Right-panel fixed width (pixels)         │
+  │ POLL_MS            │ 33      │ UI refresh interval (ms) ≈ 30 fps        │
+  │ DETECT_EVERY       │ 2       │ Run detection every N frames             │
+  └────────────────────┴─────────┴──────────────────────────────────────────┘
+
+  The following constants in detector.py control detection behaviour:
+
+  ┌────────────────────────┬────────┬────────────────────────────────────────┐
+  │ Constant               │Default │ Description                            │
+  ├────────────────────────┼────────┼────────────────────────────────────────┤
+  │ KNOWN_FACE_WIDTH_CM    │ 14.5   │ Assumed face width for distance calc   │
+  │ DEFAULT_FOCAL_LENGTH   │ 600.0  │ Assumed camera focal length (pixels)   │
+  │ DISTANCE_THRESHOLDS    │ see    │ too_close < 40, close < 55,            │
+  │                        │ file   │ good_max < 80 cm                       │
+  └────────────────────────┴────────┴────────────────────────────────────────┘
+
+  Break intervals in tracker.py:
+
+  ┌────────────┬──────────────────────┐
+  │ Status     │ Interval (minutes)   │
+  ├────────────┼──────────────────────┤
+  │ too_close  │ 8                    │
+  │ close      │ 12                   │
+  │ good       │ 20                   │
+  │ far        │ 25                   │
+  │ no_face    │ 20                   │
+  └────────────┴──────────────────────┘
+
+================================================================================
+  12. TROUBLESHOOTING
+================================================================================
+
+  App won't open (first launch)
+  --------------------------------
+  macOS Gatekeeper may block unsigned applications.
+  Solution: Right-click Irestrem.app → Open → Open (one time only).
+
+  Camera permission denied
+  -------------------------
+  Go to System Settings → Privacy & Security → Camera and enable access
+  for the application or Terminal. Restart Irestrem afterwards.
+
+  "No face detected" constantly
+  --------------------------------
+  • Ensure adequate lighting (avoid backlighting from a window behind you).
+  • Make sure your face is centred and unobstructed.
+  • Keep the camera at eye level; extreme angles reduce detection accuracy.
+  • Increase minNeighbors from 5 to 3 in detector.py if lighting is poor.
+
+  Distance reading is inaccurate
+  --------------------------------
+  Use the "Calibrate at 60 cm" function (see Section 9) to set the focal
+  length for your specific camera.
+
+  Camera preview is laggy
+  -------------------------
+  • Close other applications that may be using the camera.
+  • Reduce DETECT_EVERY from 2 to 3 or 4 in ui.py to run face detection less
+    frequently, lowering CPU usage.
+  • Reduce CAMERA_W / CAMERA_H for lower resolution capture.
+
+  Menu bar item not appearing
+  ----------------------------
+  The status bar item requires pyobjc-framework-Cocoa. Install it with:
+      pip3 install pyobjc-framework-Cocoa
+  Then restart Irestrem.
+
+  App crashes on launch
+  ----------------------
+  Check the crash report in:  ~/Library/Logs/DiagnosticReports/
+  The most common cause is a camera permission issue or a missing Python
+  package. Run "python3 main.py" in Terminal to see the full error output.
+
+  Rebuilding the app bundle
+  --------------------------
+  If you modify source files, rebuild the bundle with:
+      cd ~/Desktop/DataScienceMiniProject
+      python3 setup.py py2app --alias
+  The updated bundle is placed in dist/Irestrem.app.
+
+================================================================================
+  13. KEYBOARD & MOUSE REFERENCE
+================================================================================
+
+  Main window
+  ~~~~~~~~~~~~
+  Resize window     Drag any window edge or corner.
+  Minimum size      580 × 520 px (enforced automatically).
+
+  Break pop-up
+  ~~~~~~~~~~~~~
+  Done              Click "Done — I took a break" → completes break, resets timer.
+  Skip              Click "Skip" or close the window → resets timer without credit.
+
+  Menu bar
+  ~~~~~~~~~
+  Click status item → Shows a dropdown menu.
+  "Quit Irestrem"   → Terminates the application completely.
+
+================================================================================
+  14. PRIVACY & DATA
+================================================================================
+
+  Camera data
+  ------------
+  Video frames are processed entirely in memory on your local machine.
+  No video frames, images, or screenshots are written to disk.
+  No data is transmitted to any external server or service.
+
+  Session data
+  -------------
+  Session statistics (duration, break count, posture history) are held in
+  memory only and are discarded when the application exits. Nothing is written
+  to a database, file, or user defaults.
+
+  System notifications
+  ----------------------
+  Notification text is generated locally. No notification content is logged
+  or transmitted externally.
+
+  Camera permission
+  ------------------
+  Irestrem requests camera access via the standard macOS privacy framework.
+  Access can be revoked at any time from System Settings → Privacy & Security
+  → Camera without affecting any stored data (there is none).
+
+================================================================================
+  END OF DOCUMENTATION
+================================================================================
+
+  Irestrem v1.0 — Built with Python 3.14, OpenCV 4.x, Tkinter, PyObjC
+  Platform: macOS (universal binary — Apple Silicon & Intel)
+
+================================================================================

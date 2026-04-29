@@ -1,0 +1,35 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# py2app build artifacts (machine-specific, regenerate with: python3 setup.py py2app --alias)
+build/
+dist/
+
+# macOS .app bundle (built locally, contains absolute paths to local Python)
+Irestrem.app/
+
+# Generated icon — recreate with: python3 app_icon.py
+AppIcon.icns
+
+# Claude Code internal memory (private)
+.claude/
+
+# Crash reports
+*.ips
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
