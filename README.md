@@ -1,26 +1,28 @@
-# 👁 Irestrem
+# Irestrem
 
-**A macOS app that watches how close you sit to your screen — and reminds you to rest your eyes before the strain sets in.**
+A macOS toolkit with two complementary tools for healthier, more focused screen use:
+
+1. **Eye Strain Prevention** — monitors how close you sit to your screen and schedules 20-20-20 eye breaks automatically
+2. **Attention Monitor** — lets a teacher see at a glance which students are paying attention during an online class session
+
+---
+
+## Part 1 — Eye Strain Prevention
 
 Irestrem uses your Mac's built-in camera to measure the distance between your face and the display in real time. It adapts the frequency of eye-rest reminders based on how close you are sitting, so the harder you're working the better it looks after you.
 
----
+### Features
 
-## Features
-
-- **Real-time distance detection** — Face detection via OpenCV; distance estimated using the pinhole camera model
-- **Dynamic break intervals** — Shorter breaks when you're too close, longer when your posture is good
-- **Live camera preview** — Colour-coded bounding box (red → orange → green → blue) shows your status at a glance
-- **Eye break pop-up** — Full-screen reminder with a 20-second countdown when a break is due
+- **Real-time distance detection** — face detection via OpenCV; distance estimated using the pinhole camera model
+- **Dynamic break intervals** — shorter breaks when you're too close, longer when your posture is good
+- **Live camera preview** — colour-coded bounding box (red → orange → green → blue) shows your status at a glance
+- **Eye break pop-up** — full-screen reminder with a 20-second countdown when a break is due
 - **macOS menu bar countdown** — `👁 MM:SS` timer lives in your status bar so you never lose track
-- **System notifications** — Native macOS notification with sound when each break is triggered
-- **Session statistics** — Duration, breaks taken, and dominant posture for the current session
-- **One-click calibration** — Improve accuracy for your specific webcam at a known 60 cm reference distance
-- **Resizable window** — Camera preview scales to fill available space; info panel stays fixed
+- **System notifications** — native macOS notification with sound when each break is triggered
+- **Session statistics** — duration, breaks taken, and dominant posture for the current session
+- **One-click calibration** — improve accuracy for your specific webcam at a known 60 cm reference distance
 
----
-
-## The 20-20-20 Rule
+### The 20-20-20 Rule
 
 > Every **20 minutes**, look at something **20 feet (6 m) away** for **20 seconds**.
 
@@ -28,12 +30,98 @@ Irestrem adapts this rule to your actual screen distance:
 
 | Status | Distance | Break Every |
 |--------|----------|-------------|
-| 🔴 Too Close | < 40 cm | 8 minutes |
-| 🟠 Close | 40 – 55 cm | 12 minutes |
-| 🟢 Good | 55 – 80 cm | 20 minutes |
-| 🔵 Far | > 80 cm | 25 minutes |
+| Too Close | < 40 cm | 8 minutes |
+| Close | 40 – 55 cm | 12 minutes |
+| Good | 55 – 80 cm | 20 minutes |
+| Far | > 80 cm | 25 minutes |
 
-The active interval is based on your **dominant posture over the last 5 minutes**, so brief movements don't immediately change your schedule.
+### Usage
+
+**Option A — Launch as a macOS app (recommended)**
+
+Double-click `Irestrem.app`.
+
+> **First launch only:** Right-click → **Open** → **Open** to bypass the Gatekeeper warning (app is unsigned).
+
+**Option B — Terminal**
+
+```bash
+python3 main.py
+```
+
+---
+
+## Part 2 — Attention Monitor
+
+A lightweight classroom attention tracking system that works alongside any video conferencing app. Students run a small client that watches the webcam locally; the teacher sees a live dashboard showing each student's gaze status. No video is ever transmitted — only a tiny JSON status update every 2 seconds.
+
+### How It Works
+
+```
+Student machine                       Teacher machine
+───────────────                       ───────────────
+Webcam → AttentionMonitor             attention_server.py (HTTP)
+  │  (OpenCV face + eye detection)          │
+  │  gaze_status, attention_score           │  GET /students
+  └──── POST /update (JSON) ──────────────► └──► teacher_dashboard.py
+        (no video, ~200 bytes/req)                (Tkinter grid, refreshes every 3 s)
+```
+
+### Gaze States
+
+| Status | Meaning | Card colour |
+|--------|---------|-------------|
+| `present` | Face visible, eyes detected, facing screen | Green |
+| `looking_away` | Face visible but head turned | Orange |
+| `absent` | No face detected | Red |
+
+### Running the System
+
+**Step 1 — Start the server** (on the teacher's machine or a shared network host):
+
+```bash
+python3 attention_server.py
+# Listening on port 8765
+# Prints the IP address students should use
+```
+
+**Step 2 — Each student runs the client:**
+
+```bash
+python3 student_client.py --server http://TEACHER_IP:8765
+# A name dialog appears on first launch
+# Or pass the name directly:
+python3 student_client.py --server http://192.168.1.10:8765 --name "Alice"
+```
+
+A small floating window (always on top) appears showing the student's own live status. The webcam is used locally; nothing is streamed.
+
+**Step 3 — Teacher opens the dashboard:**
+
+```bash
+python3 teacher_dashboard.py --server http://localhost:8765
+```
+
+A dark-themed grid shows all connected students. Cards are sorted by urgency (absent → not looking → present) and update every 3 seconds.
+
+**Demo / testing** (simulates 5 students with rotating statuses):
+
+```bash
+python3 _demo_sim.py
+```
+
+### Camera note
+
+On macOS the webcam can be shared between apps simultaneously, so `student_client.py` and your meeting app can both use it at the same time.
+On Windows, only one app can hold the camera at a time — use OBS Virtual Camera so your meeting app uses the virtual feed and `student_client.py` uses the real one.
+
+### Integration possibilities
+
+The server exposes a plain HTTP/JSON API, so the student client can be replaced by:
+
+- A **browser extension** — uses `navigator.mediaDevices.getUserMedia()` and runs MediaPipe FaceMesh in-browser; works on Google Meet, Zoom Web, and Teams Web without any install
+- A **Zoom / Teams app** — embed the teacher dashboard as a side panel via the Zoom Apps SDK or Microsoft Teams Toolkit
+- An **LMS plugin** — POST to `/update` from any web client; embed the dashboard as an iframe in Moodle or Canvas
 
 ---
 
@@ -45,66 +133,27 @@ The active interval is based on your **dominant posture over the last 5 minutes*
 | Python | 3.9 or later |
 | Webcam | Any camera supported by macOS AVFoundation |
 
----
-
-## Installation
-
-**1. Clone the repository**
-
-```bash
-git clone https://github.com/sebeLonn/Irestrem.git
-cd Irestrem
-```
-
-**2. Install Python dependencies**
-
 ```bash
 pip3 install -r requirements.txt
 ```
 
-**3. Generate the app icon**
+---
+
+## Installation
+
+```bash
+git clone https://github.com/sebeLonn/Irestrem.git
+cd Irestrem
+pip3 install -r requirements.txt
+```
+
+To build the macOS `.app` bundle:
 
 ```bash
 python3 app_icon.py
-```
-
-**4. Build the macOS .app bundle**
-
-```bash
 python3 setup.py py2app --alias
+# App placed at dist/Irestrem.app
 ```
-
-The app is placed at `dist/Irestrem.app`.
-
----
-
-## Usage
-
-**Option A — Launch as a macOS app (recommended)**
-
-Double-click `dist/Irestrem.app`.
-
-> **First launch only:** macOS Gatekeeper may show a security warning because the app is not signed with an Apple Developer certificate. Right-click → **Open** → **Open** to bypass it. This is a one-time step.
-
-**Option B — Run from Terminal**
-
-```bash
-python3 main.py
-```
-
-**Grant camera permission** when prompted (System Settings → Privacy & Security → Camera if you missed it).
-
----
-
-## Calibration
-
-The default focal length (600 px) works well for most built-in Mac webcams. For better accuracy:
-
-1. Sit exactly **60 cm** from your webcam lens.
-2. Click **"Calibrate at 60 cm"** in the app.
-3. Irestrem captures your face and recalculates the focal length for your camera.
-
-Calibration resets when the app is closed. Recalibrate if you change webcam or mount position.
 
 ---
 
@@ -112,41 +161,31 @@ Calibration resets when the app is closed. Recalibrate if you change webcam or m
 
 ```
 Irestrem/
-├── main.py          # Entry point
-├── ui.py            # Main app: Tkinter GUI, camera pipeline, menu bar
-├── detector.py      # OpenCV face detection + distance estimation
-├── tracker.py       # Session timing and break scheduling
-├── notifier.py      # macOS / Linux / Windows notification dispatcher
-├── app_icon.py      # Programmatic icon generator (PNG + ICNS)
-├── setup.py         # py2app build configuration
-├── requirements.txt # Python dependencies
-└── DOCUMENTATION.txt # Full technical documentation
+│
+│  Eye Strain Prevention
+├── main.py               Entry point for the Irestrem app
+├── ui.py                 Tkinter GUI, camera pipeline, macOS menu bar
+├── detector.py           OpenCV face detection + pinhole distance estimation
+├── tracker.py            Session timing and break scheduling
+├── notifier.py           macOS / Linux / Windows notification dispatcher
+├── app_icon.py           Programmatic icon generator (PNG + ICNS)
+├── setup.py              py2app build configuration
+│
+│  Attention Monitor
+├── attention_monitor.py  Core gaze detection module (embeddable, OpenCV only)
+├── attention_server.py   Lightweight HTTP server — receives and serves student status
+├── student_client.py     Student-side client — webcam → gaze → POST to server
+├── teacher_dashboard.py  Teacher dashboard — live student grid (Tkinter)
+├── _demo_sim.py          Demo helper — simulates 5 students with rotating statuses
+│
+│  Shared
+├── requirements.txt      Python dependencies
+├── AppIcon.icns          App icon (all macOS sizes)
+├── AppIcon.png           App icon source (512 × 512 px)
+├── Irestrem.app/         macOS application bundle
+├── dist/                 py2app build output
+└── build/                py2app intermediate artefacts
 ```
-
----
-
-## How It Works
-
-```
-Camera thread                        Main thread (every 33 ms)
-─────────────                        ─────────────────────────
-cv2.VideoCapture(0)    ──frames──►  drain queue
-  │                    (numpy BGR)   convert → ImageTk.PhotoImage
-  ├─ detect every 2nd frame                  │
-  ├─ draw bounding box                       ▼
-  └─ push to queue              update Canvas + labels + menu bar
-                                       │
-                                       ▼
-                                 SessionTracker
-                                 (break countdown, posture history)
-                                       │
-                                 when time == 0
-                                       │
-                                       ▼
-                                 Notification + Break pop-up
-```
-
-> **Key implementation detail:** `cv2.VideoCapture()` is opened inside the background thread — never on the main thread. On macOS, OpenCV's AVFoundation backend starts an `NSRunLoop` internally, which conflicts with Tkinter's `NSRunLoop` on the main thread and causes an immediate `SIGABRT` crash.
 
 ---
 
@@ -154,10 +193,18 @@ cv2.VideoCapture(0)    ──frames──►  drain queue
 
 | Package | Purpose |
 |---------|---------|
-| `opencv-python` | Camera capture and face detection |
-| `numpy` | Frame manipulation and image compositing |
+| `opencv-python` | Camera capture, face and eye detection |
+| `numpy` | Frame manipulation |
 | `Pillow` | PIL → ImageTk conversion, icon generation |
 | `pyobjc-framework-Cocoa` | macOS menu bar status item (NSStatusBar) |
+
+---
+
+## Privacy
+
+**Eye Strain Prevention:** all video is processed in memory on your local machine. No frames, images, or data are written to disk or transmitted externally.
+
+**Attention Monitor:** no video is ever transmitted. Only a small JSON payload (`name`, `status`, `attention_score`, `away_duration_s`) is sent from each student to the server every 2 seconds. The server holds this data in memory only — nothing is written to disk.
 
 ---
 

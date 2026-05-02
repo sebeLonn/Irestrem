@@ -12,6 +12,7 @@ from typing import Optional
 from detector import FaceDistanceDetector, DetectionResult
 from tracker import SessionTracker
 from notifier import send_break_reminder
+from attention_monitor import AttentionMonitor, AttentionResult
 
 # ── colour palette ────────────────────────────────────────────────────────────
 BG     = '#1a1a2e'
@@ -36,6 +37,17 @@ STATUS_LABELS = {
     'no_face':   'No face detected',
 }
 
+ATTENTION_COLORS = {
+    'present':      '#44bb44',
+    'looking_away': '#ff8c00',
+    'absent':       '#ff4444',
+}
+ATTENTION_LABELS = {
+    'present':      'Looking at screen',
+    'looking_away': 'Not looking',
+    'absent':       'Not at desk',
+}
+
 CAMERA_W, CAMERA_H = 320, 240
 INFO_W = 240
 POLL_MS = 33        # ~30 fps UI refresh
@@ -54,12 +66,14 @@ class IrestremApp:
 
         self.detector = FaceDistanceDetector()
         self.tracker = SessionTracker()
+        self.attention_monitor = AttentionMonitor()
 
         self.cap: Optional[cv2.VideoCapture] = None
         self.running = False
         # Camera thread puts raw BGR numpy arrays here
         self._frame_queue: queue.Queue = queue.Queue(maxsize=3)
         self._current_result: Optional[DetectionResult] = None
+        self._attention_result: Optional[AttentionResult] = None
         self._photo = None          # prevent GC
         self._cam_image_id = None
         self._break_window: Optional[tk.Toplevel] = None
@@ -220,6 +234,32 @@ class IrestremApp:
                                    font=('Helvetica', 10), fg=FG, bg=BG, anchor='w')
         self._avg_label.pack(fill='x')
 
+        # Attention status card
+        attn_card = tk.LabelFrame(panel, text='Attention Status',
+                                   fg=ACCENT, bg=BG,
+                                   font=('Helvetica', 9, 'bold'),
+                                   pady=4, padx=8)
+        attn_card.pack(fill='x', pady=(0, 10))
+
+        status_row = tk.Frame(attn_card, bg=BG)
+        status_row.pack(fill='x')
+
+        self._attn_dot = tk.Label(status_row, text='●', font=('Helvetica', 13),
+                                   fg=FG_DIM, bg=BG)
+        self._attn_dot.pack(side='left')
+
+        self._attn_label = tk.Label(status_row, text='Starting…',
+                                     font=('Helvetica', 10, 'bold'), fg=FG, bg=BG)
+        self._attn_label.pack(side='left', padx=(4, 0))
+
+        self._attn_score = tk.Label(attn_card, text='Score: --%',
+                                     font=('Helvetica', 9), fg=FG_DIM, bg=BG, anchor='w')
+        self._attn_score.pack(fill='x')
+
+        self._attn_away = tk.Label(attn_card, text='',
+                                    font=('Helvetica', 9), fg=ACCENT, bg=BG, anchor='w')
+        self._attn_away.pack(fill='x')
+
         # Buttons — anchored to bottom so they're always visible
         btn_frame = tk.Frame(panel, bg=BG)
         btn_frame.pack(side='bottom', fill='x', pady=(8, 4))
@@ -282,8 +322,9 @@ class IrestremApp:
         cap.set(cv2.CAP_PROP_FPS, 30)
         self.cap = cap   # expose to main thread for calibration
 
-        frame_count = 0
-        last_result = DetectionResult(None, None, 'no_face')
+        frame_count  = 0
+        last_result  = DetectionResult(None, None, 'no_face')
+        last_attn    = AttentionResult(True, 'present', 1.0, None, 1.0, 0.0, 0.0, 0)
 
         while self.running:
             ret, frame = cap.read()
@@ -298,8 +339,11 @@ class IrestremApp:
                 _, last_result = self.detector.process_frame(frame)
                 self._current_result = last_result
                 self.tracker.update_status(last_result.status)
+                last_attn = self.attention_monitor.process_frame(frame)
+                self._attention_result = last_attn
 
             annotated = self.detector.draw_result(frame, last_result)
+            annotated = self.attention_monitor.draw_overlay(annotated, last_attn)
             if not self._frame_queue.full():
                 self._frame_queue.put(annotated)
 
@@ -380,6 +424,21 @@ class IrestremApp:
                 self._trigger_break()
 
         self._update_status_bar(secs_until, self.tracker.in_break)
+
+        attn = self._attention_result
+        if attn is not None:
+            acolor = ATTENTION_COLORS.get(attn.gaze_status, FG_DIM)
+            self._attn_dot.config(fg=acolor)
+            self._attn_label.config(
+                text=ATTENTION_LABELS.get(attn.gaze_status, attn.gaze_status),
+                fg=acolor,
+            )
+            self._attn_score.config(text=f'Score: {int(attn.attention_score * 100)}%')
+            if attn.away_duration_s >= 2.0:
+                self._attn_away.config(
+                    text=f'Away: {int(attn.away_duration_s)}s', fg=ACCENT)
+            else:
+                self._attn_away.config(text='')
 
         total_s = self.tracker.get_session_duration()
         h, rem = divmod(int(total_s), 3600)

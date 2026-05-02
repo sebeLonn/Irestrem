@@ -1,38 +1,64 @@
 ================================================================================
-  IRESTREM — EYE STRAIN PREVENTION APPLICATION
-  Documentation v1.0
+  IRESTREM — TECHNICAL DOCUMENTATION
+  Version 1.1
 ================================================================================
 
-  A real-time screen-proximity monitor that tracks how close you sit to your
-  display and automatically schedules eye-rest reminders calibrated to your
-  posture — helping you follow the 20-20-20 rule effortlessly.
+  This document covers both systems included in the Irestrem project:
+
+    PART A — Eye Strain Prevention App  (main.py, ui.py, detector.py, …)
+    PART B — Attention Monitor System   (attention_monitor.py, attention_server.py, …)
 
 ================================================================================
   TABLE OF CONTENTS
 ================================================================================
 
-  1.  Overview
-  2.  Key Features
-  3.  System Requirements
-  4.  Installation
-  5.  Launching the Application
-  6.  User Interface Guide
-  7.  How It Works — Technical Architecture
-        7.1  Distance Detection Engine
-        7.2  Session Tracker
-        7.3  Notification System
-        7.4  Camera Pipeline
-        7.5  macOS Status Bar Integration
-  8.  The 20-20-20 Rule & Break Intervals
-  9.  Calibration
-  10. File Structure
-  11. Configuration Reference
-  12. Troubleshooting
-  13. Keyboard & Mouse Reference
-  14. Privacy & Data
+  PART A — EYE STRAIN PREVENTION
+  --------------------------------
+  A1.   Overview
+  A2.   Key Features
+  A3.   System Requirements
+  A4.   Installation
+  A5.   Launching the Application
+  A6.   User Interface Guide
+  A7.   Technical Architecture
+          A7.1  Distance Detection Engine  (detector.py)
+          A7.2  Session Tracker            (tracker.py)
+          A7.3  Notification System        (notifier.py)
+          A7.4  Camera Pipeline            (ui.py)
+          A7.5  macOS Status Bar           (ui.py)
+  A8.   The 20-20-20 Rule & Break Intervals
+  A9.   Calibration
+  A10.  File Structure
+  A11.  Configuration Reference
+  A12.  Troubleshooting
+  A13.  Keyboard & Mouse Reference
+  A14.  Privacy & Data
+
+  PART B — ATTENTION MONITOR
+  ---------------------------
+  B1.   Overview
+  B2.   System Architecture
+  B3.   Components
+          B3.1  AttentionMonitor module    (attention_monitor.py)
+          B3.2  Attention Server           (attention_server.py)
+          B3.3  Student Client             (student_client.py)
+          B3.4  Teacher Dashboard          (teacher_dashboard.py)
+          B3.5  Demo Simulator             (_demo_sim.py)
+  B4.   Running the System
+  B5.   Server HTTP API Reference
+  B6.   AttentionMonitor Python API Reference
+  B7.   Integration Guide
+  B8.   Configuration Reference
+  B9.   Troubleshooting
+  B10.  Privacy & Data
+
 
 ================================================================================
-  1. OVERVIEW
+  PART A — EYE STRAIN PREVENTION
+================================================================================
+
+================================================================================
+  A1. OVERVIEW
 ================================================================================
 
   Irestrem is a macOS desktop application written in Python. Using your Mac's
@@ -53,7 +79,7 @@
   happens entirely on-device — no data ever leaves your computer.
 
 ================================================================================
-  2. KEY FEATURES
+  A2. KEY FEATURES
 ================================================================================
 
   Distance-Aware Break Scheduling
@@ -82,132 +108,84 @@
   • When the countdown reaches zero, a full pop-up window appears on top of
     all other windows and a macOS system notification is sent.
   • The pop-up includes its own 20-second countdown.
-  • You can mark the break as done or skip it — either action resets the
-    main timer.
+  • You can mark the break as done or skip it.
 
   macOS Menu Bar Status Item
   ---------------------------
   • A "👁 MM:SS" label appears in the top-right menu bar while Irestrem runs.
-  • Updates every 250 ms so you can check your break schedule without
-    switching to the main window.
+  • Updates every 250 ms.
   • Switches to "👁 REST Xs" format during an active break.
   • Includes a Quit option in its menu.
 
   Session Statistics
   ------------------
-  • Tracks total session duration (hours and minutes).
-  • Counts how many breaks have been taken during the session.
-  • Reports your dominant posture average for the session.
+  • Tracks total session duration, break count, and dominant posture average.
 
   One-Click Calibration
   ----------------------
-  • The "Calibrate at 60 cm" button lets you improve distance accuracy by
-    providing a known reference measurement.
-  • Calibration adjusts the estimated camera focal length to match your
-    specific webcam.
-
-  Dark-Themed Custom Icon
-  -----------------------
-  • A procedurally generated dark-navy icon featuring an eye graphic
-    (matching the app's accent colour palette) is embedded in the .app bundle
-    in all required macOS icon sizes (16 × 16 through 1024 × 1024 px).
-
-  Resizable Window
-  ----------------
-  • The main window is fully resizable with a minimum size of 580 × 520 px.
-  • The camera preview scales to fill all available space while preserving
-    the 4:3 aspect ratio (letterboxed with the app's background colour).
-  • The info panel on the right maintains a fixed width so controls are
-    always visible.
+  • Improves distance accuracy by providing a known 60 cm reference.
 
 ================================================================================
-  3. SYSTEM REQUIREMENTS
+  A3. SYSTEM REQUIREMENTS
 ================================================================================
 
-  Operating System   macOS 12 Monterey or later (tested on macOS 26.3)
-  Architecture       Apple Silicon (arm64) and Intel (x86_64) — universal build
+  Operating System   macOS 12 Monterey or later
+  Architecture       Apple Silicon (arm64) and Intel (x86_64)
   Python             3.9 or later (3.14 recommended)
   Camera             Any built-in or USB webcam supported by macOS AVFoundation
   Disk Space         ~50 MB (including Python packages)
   RAM                ~150 MB during normal use
 
-  Python packages required (installed automatically via requirements.txt):
+  Python packages (requirements.txt):
     opencv-python >= 4.8.0
     numpy >= 1.24.0
     Pillow >= 10.0.0
     pyobjc-framework-Cocoa >= 9.0  (macOS only — enables menu bar status item)
 
 ================================================================================
-  4. INSTALLATION
+  A4. INSTALLATION
 ================================================================================
 
   Step 1 — Install Python dependencies
   -------------------------------------
-  Open Terminal, navigate to the project folder, and run:
-
-      cd ~/Desktop/DataScienceMiniProject
       pip3 install -r requirements.txt
-
-  This installs all required packages including OpenCV, Pillow, NumPy, and
-  PyObjC (for the menu bar integration).
 
   Step 2 — Verify the app bundle
   --------------------------------
-  The ready-to-use application bundle is located at:
-
-      DataScienceMiniProject/Irestrem.app
-
-  No compilation step is required for normal use. The bundle was built with
-  py2app in alias mode, which means it references your local Python
-  installation and the project source files directly.
+  The ready-to-use bundle is at Irestrem.app (alias mode, references local
+  Python and source files directly — no separate compilation needed).
 
   Step 3 — Grant camera permission
   ----------------------------------
-  macOS requires explicit camera permission on first launch. When Irestrem
-  starts for the first time, the system will display a permission dialog.
-  Click "Allow" to grant camera access.
-
-  If you missed the dialog or clicked "Deny":
-    1. Open System Settings → Privacy & Security → Camera.
-    2. Find "Terminal" or "Irestrem" in the list and enable the toggle.
-    3. Restart Irestrem.
+  macOS requires explicit camera permission on first launch.
+  If denied: System Settings → Privacy & Security → Camera → enable toggle.
 
 ================================================================================
-  5. LAUNCHING THE APPLICATION
+  A5. LAUNCHING THE APPLICATION
 ================================================================================
 
   Method A — Double-click (recommended)
   ----------------------------------------
-  Open Finder → navigate to DataScienceMiniProject → double-click Irestrem.app.
-
-  First-launch security note: macOS Gatekeeper may show a warning because
-  the app is not signed with an Apple Developer certificate. To bypass it:
-    1. Right-click Irestrem.app → select "Open".
-    2. Click "Open" in the dialog that appears.
-  You only need to do this once. Subsequent launches work with a normal
-  double-click.
+  Double-click Irestrem.app.
+  First launch: Right-click → Open → Open (Gatekeeper bypass, one time only).
 
   Method B — Terminal
   --------------------
-      cd ~/Desktop/DataScienceMiniProject
       python3 main.py
 
-  This is equivalent to launching from Finder and is useful during development
-  or troubleshooting because error output is visible in the terminal.
-
 ================================================================================
-  6. USER INTERFACE GUIDE
+  A6. USER INTERFACE GUIDE
 ================================================================================
 
   +------------------------------------------------------------------+
-  |  Irestrem                       ● Good distance                  |  ← Header
+  |  Irestrem                       ● Good distance                  |  Header
   +------------------------------------+-----------------------------+
   |                                    |  Distance to Screen         |
-  |                                    |         65 cm               |  ← Distance card
-  |                                    |-----------------------------|
-  |      Live Camera Preview           |  Next Eye Break             |
-  |   (face bounding box + distance)   |       18:42                 |  ← Countdown
-  |                                    |  [==========----------]     |  ← Progress bar
+  |                                    |         65 cm               |
+  |      Live Camera Preview           |-----------------------------|
+  |   (face bounding box + distance)   |  Next Eye Break             |
+  |                                    |       18:42                 |
+  |                                    |  [==========----------]     |
   |                                    |  Interval: 20 min           |
   |                                    |-----------------------------|
   |                                    |  Session Stats              |
@@ -215,64 +193,41 @@
   |                                    |  Breaks taken: 3            |
   |                                    |  Posture avg: Good distance |
   +------------------------------------+-----------------------------|
-  |                                    |  [  Take a Break Now  ]     |  ← Break button
-  |                                    |  [ Calibrate at 60 cm ]     |  ← Calibration
+  |                                    |  [  Take a Break Now  ]     |
+  |                                    |  [ Calibrate at 60 cm ]     |
   +------------------------------------------------------------------+
-  |   20-20-20 rule: every 20 min, look 6 m away for 20 s           |  ← Footer
+  |   20-20-20 rule: every 20 min, look 6 m away for 20 s           |
   +------------------------------------------------------------------+
 
   Header
   -------
-  Displays the app name and the current status indicator (coloured dot + label).
-  The colour and text update in real time:
+  Current status indicator (coloured dot + label):
     Red    → "Too close — move back!"   (< 40 cm)
     Orange → "Slightly close"           (40–55 cm)
     Green  → "Good distance"            (55–80 cm)
     Blue   → "Good distance (far)"      (> 80 cm)
     Grey   → "No face detected"
 
-  Distance to Screen card
-  ------------------------
-  Shows the estimated distance in centimetres. The number colour matches the
-  status colour above for quick visual recognition.
-
   Next Eye Break card
   --------------------
-  • MM:SS timer — counts down to the next scheduled break.
-  • Progress bar — fills from left (start) to right (break due).
-  • Interval label — shows the currently active break interval (8–25 min).
+  MM:SS countdown, progress bar, currently active break interval (8–25 min).
 
   Session Stats card
   -------------------
-  • Duration  — how long the current session has been running.
-  • Breaks taken — total breaks completed (skipped breaks are not counted).
-  • Posture avg — the dominant distance classification over the last 5 minutes.
-
-  Take a Break Now button
-  ------------------------
-  Immediately triggers a break regardless of the countdown state. Opens the
-  break pop-up window and resets the main timer after the break is done.
-
-  Calibrate at 60 cm button
-  --------------------------
-  Launches the calibration workflow (see Section 9).
+  Duration, breaks taken, dominant distance classification over 5 minutes.
 
   Eye Break Pop-up
   -----------------
-  When a break is triggered, a separate window appears on top of all other
-  windows. It contains:
-    • A 20-second countdown.
-    • Instructions to look at something 6 metres (20 feet) away.
-    • "Done — I took a break" → completes the break and resets the timer.
-    • "Skip" → dismisses the break and still resets the timer.
+  Appears on top of all windows. Contains a 20-second countdown.
+  "Done — I took a break" → completes break and resets timer.
+  "Skip" → dismisses break and still resets timer.
 
   macOS Menu Bar
   ---------------
-  A "👁 MM:SS" label appears in the top-right system menu bar. Clicking on it
-  reveals a menu with a single "Quit Irestrem" option.
+  "👁 MM:SS" label in the top-right system menu bar. Click for Quit option.
 
 ================================================================================
-  7. HOW IT WORKS — TECHNICAL ARCHITECTURE
+  A7. TECHNICAL ARCHITECTURE
 ================================================================================
 
   Irestrem is composed of five loosely coupled modules:
@@ -285,24 +240,22 @@
       app_icon.py   Icon generator — creates AppIcon.png and AppIcon.icns.
 
   ──────────────────────────────────────────────────────────────────────────────
-  7.1  Distance Detection Engine  (detector.py)
+  A7.1  Distance Detection Engine  (detector.py)
   ──────────────────────────────────────────────────────────────────────────────
 
   Face Detection
   ~~~~~~~~~~~~~~
-  Irestrem uses OpenCV's Haar cascade classifier
-  (haarcascade_frontalface_default.xml) to locate faces in each video frame.
-  Before detection, the frame is converted to greyscale and histogram-
-  equalised to improve robustness in varying lighting conditions.
+  Uses OpenCV's Haar cascade classifier (haarcascade_frontalface_default.xml).
+  Frame is converted to greyscale and histogram-equalised before detection.
 
   Detection parameters:
     scaleFactor   1.1   — how much image size is reduced at each scale
     minNeighbors  5     — how many neighbours each rectangle must retain
-    minSize       60×60 — minimum face size to detect (filters noise)
+    minSize       60×60 — minimum face size to detect
 
   Distance Estimation
   ~~~~~~~~~~~~~~~~~~~~
-  Distance is calculated using the pinhole camera model:
+  Uses the pinhole camera model:
 
       distance (cm) = (KNOWN_FACE_WIDTH × FOCAL_LENGTH) / face_pixel_width
 
@@ -311,195 +264,105 @@
     FOCAL_LENGTH      = 600 px   (default; updated by calibration)
     face_pixel_width  = width of the detected bounding box in pixels
 
-  The largest detected face is used when multiple faces appear in frame.
-
   Status Classification
   ~~~~~~~~~~~~~~~~~~~~~~
-    < 40 cm   →  too_close   (very high eye strain risk)
-    40–55 cm  →  close       (elevated eye strain risk)
-    55–80 cm  →  good        (recommended range)
-    > 80 cm   →  far         (excellent posture)
-    no face   →  no_face     (user not detected)
-
-  Performance Optimisation
-  ~~~~~~~~~~~~~~~~~~~~~~~~~
-  To reduce CPU load while maintaining smooth video, face detection runs every
-  second frame (configurable via DETECT_EVERY = 2 in ui.py). The annotation
-  (bounding box + distance label) from the last detection is drawn on every
-  frame, so the visual output remains fluid even when detection is throttled.
+    < 40 cm   →  too_close
+    40–55 cm  →  close
+    55–80 cm  →  good
+    > 80 cm   →  far
+    no face   →  no_face
 
   ──────────────────────────────────────────────────────────────────────────────
-  7.2  Session Tracker  (tracker.py)
+  A7.2  Session Tracker  (tracker.py)
   ──────────────────────────────────────────────────────────────────────────────
 
-  SessionTracker maintains three pieces of state:
-
-    1. Break interval — derived from the dominant status over the last
-       5 minutes (stored as a rolling deque of up to 300 samples).
-
-    2. Countdown — the number of seconds remaining until the next break,
-       computed as:
-           remaining = (interval_minutes × 60) − (now − last_break_time)
-
-    3. Break state — whether a break is currently active, when it started,
-       and how many seconds of the 20-second rest remain.
-
-  Status history is sampled each time a new detection result arrives
-  (approximately once every 100 ms). The dominant status is determined by
-  selecting the mode of all samples in the deque — ensuring that brief
-  position changes do not immediately alter the break schedule.
+  Maintains break interval (mode of rolling 5-min history), countdown seconds,
+  and break state. Status history sampled ~once per 100 ms.
 
   ──────────────────────────────────────────────────────────────────────────────
-  7.3  Notification System  (notifier.py)
+  A7.3  Notification System  (notifier.py)
   ──────────────────────────────────────────────────────────────────────────────
 
-  Notifications are dispatched via:
-    macOS    →  osascript "display notification …" with optional Ping sound
-    Linux    →  notify-send (if installed)
-    Windows  →  plyer.notification (if installed)
-
-  The notification message is tailored to the user's current dominant posture:
-    too_close  →  "You've been very close to the screen for N min. Move back!"
-    close      →  "You've been close to the screen for N min. Take a break!"
-    good       →  "20-20-20 break: look 20 feet away for 20 seconds."
-    far        →  "Great posture! Time for a 20-second eye break."
-    no_face    →  Generic break reminder.
+  macOS   →  osascript "display notification …" with optional Ping sound
+  Linux   →  notify-send (if installed)
+  Windows →  plyer.notification (if installed)
 
   ──────────────────────────────────────────────────────────────────────────────
-  7.4  Camera Pipeline  (ui.py)
+  A7.4  Camera Pipeline  (ui.py)
   ──────────────────────────────────────────────────────────────────────────────
-
-  The pipeline is split across two threads to prevent the macOS AVFoundation
-  camera backend from conflicting with Tkinter's NSRunLoop:
 
   Background Thread (_camera_loop)
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  • Opens cv2.VideoCapture(0) — camera init happens here, NOT on the main
-    thread, to avoid an NSRunLoop conflict that would cause a fatal crash.
-  • Reads frames as fast as the webcam allows (target: 30 fps).
-  • Runs face detection every DETECT_EVERY frames.
-  • Draws bounding box annotation using the last known detection result.
-  • Places raw BGR numpy arrays into a thread-safe queue (maxsize=3).
+  • Opens cv2.VideoCapture(0) — MUST happen here, not on the main thread.
+    On macOS, OpenCV's AVFoundation backend starts an NSRunLoop internally,
+    which conflicts with Tkinter's NSRunLoop on the main thread → fatal crash.
+  • Reads frames at ~30 fps, detects every DETECT_EVERY frames.
+  • Pushes BGR numpy arrays into a thread-safe queue (maxsize=3).
 
   Main Thread (_poll, called via root.after every 33 ms)
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  • Drains the queue and keeps only the latest frame.
-  • Converts the BGR numpy array → PIL Image → ImageTk.PhotoImage.
-    (PhotoImage MUST be created on the main thread to avoid Tk crashes.)
-  • Letterboxes the image to fit the current canvas size while preserving
-    the 4:3 aspect ratio.
-  • Updates the Canvas widget with the new photo.
-  • Calls _refresh_ui() to update all text labels and the menu bar item.
+  • Drains the queue, keeps only the latest frame.
+  • Converts BGR → PIL Image → ImageTk.PhotoImage (must be on main thread).
+  • Letterboxes to fit the current canvas size, updates Canvas widget.
+  • Calls _refresh_ui() to update labels and menu bar.
 
   ──────────────────────────────────────────────────────────────────────────────
-  7.5  macOS Status Bar Integration  (ui.py — _setup_status_bar)
+  A7.5  macOS Status Bar  (ui.py — _setup_status_bar)
   ──────────────────────────────────────────────────────────────────────────────
 
-  Irestrem uses PyObjC (pyobjc-framework-Cocoa) to create a native
-  NSStatusItem in the macOS system status bar. The implementation:
-
-    • Calls NSStatusBar.systemStatusBar().statusItemWithLength_() to allocate
-      a variable-width status item.
-    • Sets the title on the item's button via button().setTitle_().
-    • Attaches an NSMenu with a single "Quit Irestrem" item that calls
-      NSApplication's terminate: action.
-    • Updates the title on every _poll() cycle (every 33 ms) from the same
-      main thread, so no additional threading is required.
-
-  If pyobjc-framework-Cocoa is not installed, _setup_status_bar() silently
-  catches the ImportError and the application runs normally without the
-  status bar item.
+  Uses PyObjC to create a native NSStatusItem in the macOS system status bar.
+  Title updated every 33 ms from the main thread — no extra threading needed.
+  Silently skips if pyobjc-framework-Cocoa is not installed.
 
 ================================================================================
-  8. THE 20-20-20 RULE & BREAK INTERVALS
+  A8. THE 20-20-20 RULE & BREAK INTERVALS
 ================================================================================
 
-  The 20-20-20 rule, recommended by optometrists, states:
-    Every 20 minutes of screen time → look at something 20 feet (≈ 6 m) away
-    → for at least 20 seconds.
-
-  Irestrem adapts this rule dynamically based on your screen distance:
-
-  ┌──────────────────┬────────────┬──────────────────────────────────────────┐
-  │ Status           │ Distance   │ Break Interval   Rationale               │
-  ├──────────────────┼────────────┼──────────────────────────────────────────┤
-  │ Too Close        │ < 40 cm    │ Every  8 minutes  Very high strain risk   │
-  │ Close            │ 40–55 cm   │ Every 12 minutes  Elevated strain risk    │
-  │ Good (default)   │ 55–80 cm   │ Every 20 minutes  Standard 20-20-20 rule  │
-  │ Far              │ > 80 cm    │ Every 25 minutes  Excellent posture        │
-  │ No face          │ —          │ Every 20 minutes  Fallback default         │
-  └──────────────────┴────────────┴──────────────────────────────────────────┘
-
-  The interval in effect at any given moment is determined by your dominant
-  posture status over the rolling 5-minute history window. This prevents
-  momentary movements (leaning in briefly, looking down) from prematurely
-  triggering a change.
-
-  Each break consists of a 20-second eye rest. The application does not
-  enforce the rest — you choose to complete it or skip it. Skipped breaks
-  still reset the main countdown.
+  ┌──────────────────┬────────────┬─────────────────────────────────────────┐
+  │ Status           │ Distance   │ Break Interval   Rationale              │
+  ├──────────────────┼────────────┼─────────────────────────────────────────┤
+  │ Too Close        │ < 40 cm    │ Every  8 minutes  Very high strain risk  │
+  │ Close            │ 40–55 cm   │ Every 12 minutes  Elevated strain risk   │
+  │ Good (default)   │ 55–80 cm   │ Every 20 minutes  Standard 20-20-20 rule │
+  │ Far              │ > 80 cm    │ Every 25 minutes  Excellent posture       │
+  │ No face          │ —          │ Every 20 minutes  Fallback default        │
+  └──────────────────┴────────────┴─────────────────────────────────────────┘
 
 ================================================================================
-  9. CALIBRATION
+  A9. CALIBRATION
 ================================================================================
 
-  Why calibrate?
-  ---------------
-  Distance estimation relies on a known camera focal length. The default value
-  (600 px) approximates a typical built-in webcam at 640 × 480 resolution.
-  Different cameras (especially wide-angle or telephoto lenses) will produce
-  different pixel widths for the same physical face, leading to over- or
-  under-estimation of distance.
+  Default focal length (600 px) works for most built-in Mac webcams.
 
-  How to calibrate
-  -----------------
-  1. Place a ruler, tape measure, or marked object exactly 60 cm from the
-     front of your webcam lens.
-  2. Sit at that position with your face clearly visible to the camera.
-  3. Click "Calibrate at 60 cm" in the Irestrem interface.
-  4. Read the confirmation dialog and click OK.
-  5. Irestrem captures the current frame, detects your face, and computes:
+  To calibrate:
+  1. Sit exactly 60 cm from your webcam lens.
+  2. Click "Calibrate at 60 cm" in the app.
+  3. Irestrem computes: FOCAL_LENGTH = (face_pixel_width × 60) / 14.5
 
-         FOCAL_LENGTH = (face_pixel_width × 60) / 14.5
-
-  6. All subsequent distance readings use this updated focal length.
-
-  The calibration value is not persisted between sessions. Recalibrate each
-  time you change webcam, camera mount, or display setup for best accuracy.
+  Calibration is not persisted — recalibrate after changing camera or setup.
 
 ================================================================================
-  10. FILE STRUCTURE
+  A10. FILE STRUCTURE
 ================================================================================
 
   DataScienceMiniProject/
-  ├── main.py              Entry point — creates and runs IrestremApp
-  ├── ui.py                Main application class (GUI, camera, status bar)
-  ├── detector.py          Face detection + distance estimation (OpenCV)
-  ├── tracker.py           Session timing, break scheduling, status history
-  ├── notifier.py          System notification dispatcher (macOS/Linux/Windows)
-  ├── app_icon.py          Programmatic icon generator (PNG + ICNS)
+  ├── main.py              Entry point
+  ├── ui.py                GUI, camera pipeline, status bar
+  ├── detector.py          Face detection + distance estimation
+  ├── tracker.py           Session timing and break scheduling
+  ├── notifier.py          Notification dispatcher
+  ├── app_icon.py          Icon generator
   ├── setup.py             py2app build configuration
-  ├── requirements.txt     Python package dependencies
-  ├── AppIcon.icns         App icon (all macOS sizes, generated by app_icon.py)
-  ├── AppIcon.png          App icon source (512 × 512 px, used as window icon)
-  ├── Irestrem.app/        macOS application bundle (double-click to launch)
-  │   └── Contents/
-  │       ├── Info.plist          Bundle metadata, camera usage description
-  │       ├── MacOS/Irestrem      Compiled launcher (py2app Mach-O binary)
-  │       └── Resources/
-  │           ├── AppIcon.icns    Icon embedded in the bundle
-  │           ├── __boot__.py     py2app bootstrap script
-  │           └── lib/            Python environment reference (alias mode)
-  ├── dist/                py2app build output (source of Irestrem.app)
-  └── build/               py2app intermediate build artefacts
+  ├── requirements.txt     Python dependencies
+  ├── AppIcon.icns         App icon (all macOS sizes)
+  ├── AppIcon.png          App icon source (512 × 512 px)
+  └── Irestrem.app/        macOS application bundle
 
 ================================================================================
-  11. CONFIGURATION REFERENCE
+  A11. CONFIGURATION REFERENCE
 ================================================================================
 
-  The following constants in ui.py control core behaviour and can be adjusted
-  by editing the file directly:
-
+  Constants in ui.py:
   ┌────────────────────┬─────────┬──────────────────────────────────────────┐
   │ Constant           │ Default │ Description                              │
   ├────────────────────┼─────────┼──────────────────────────────────────────┤
@@ -510,132 +373,566 @@
   │ DETECT_EVERY       │ 2       │ Run detection every N frames             │
   └────────────────────┴─────────┴──────────────────────────────────────────┘
 
-  The following constants in detector.py control detection behaviour:
-
+  Constants in detector.py:
   ┌────────────────────────┬────────┬────────────────────────────────────────┐
   │ Constant               │Default │ Description                            │
   ├────────────────────────┼────────┼────────────────────────────────────────┤
   │ KNOWN_FACE_WIDTH_CM    │ 14.5   │ Assumed face width for distance calc   │
   │ DEFAULT_FOCAL_LENGTH   │ 600.0  │ Assumed camera focal length (pixels)   │
-  │ DISTANCE_THRESHOLDS    │ see    │ too_close < 40, close < 55,            │
-  │                        │ file   │ good_max < 80 cm                       │
   └────────────────────────┴────────┴────────────────────────────────────────┘
 
-  Break intervals in tracker.py:
-
-  ┌────────────┬──────────────────────┐
-  │ Status     │ Interval (minutes)   │
-  ├────────────┼──────────────────────┤
-  │ too_close  │ 8                    │
-  │ close      │ 12                   │
-  │ good       │ 20                   │
-  │ far        │ 25                   │
-  │ no_face    │ 20                   │
-  └────────────┴──────────────────────┘
-
 ================================================================================
-  12. TROUBLESHOOTING
+  A12. TROUBLESHOOTING
 ================================================================================
 
   App won't open (first launch)
-  --------------------------------
-  macOS Gatekeeper may block unsigned applications.
-  Solution: Right-click Irestrem.app → Open → Open (one time only).
+    macOS Gatekeeper blocks unsigned apps.
+    Fix: Right-click → Open → Open (one time only).
 
   Camera permission denied
-  -------------------------
-  Go to System Settings → Privacy & Security → Camera and enable access
-  for the application or Terminal. Restart Irestrem afterwards.
+    System Settings → Privacy & Security → Camera → enable toggle → restart.
 
   "No face detected" constantly
-  --------------------------------
-  • Ensure adequate lighting (avoid backlighting from a window behind you).
-  • Make sure your face is centred and unobstructed.
-  • Keep the camera at eye level; extreme angles reduce detection accuracy.
-  • Increase minNeighbors from 5 to 3 in detector.py if lighting is poor.
+    • Improve lighting (avoid backlighting from a window behind you).
+    • Centre your face; keep the camera at eye level.
+    • Lower minNeighbors from 5 to 3 in detector.py for poor lighting.
 
   Distance reading is inaccurate
-  --------------------------------
-  Use the "Calibrate at 60 cm" function (see Section 9) to set the focal
-  length for your specific camera.
+    Use "Calibrate at 60 cm" (see A9).
 
   Camera preview is laggy
-  -------------------------
-  • Close other applications that may be using the camera.
-  • Reduce DETECT_EVERY from 2 to 3 or 4 in ui.py to run face detection less
-    frequently, lowering CPU usage.
-  • Reduce CAMERA_W / CAMERA_H for lower resolution capture.
+    • Increase DETECT_EVERY to 3 or 4 in ui.py.
+    • Reduce CAMERA_W / CAMERA_H for lower-resolution capture.
 
   Menu bar item not appearing
-  ----------------------------
-  The status bar item requires pyobjc-framework-Cocoa. Install it with:
-      pip3 install pyobjc-framework-Cocoa
-  Then restart Irestrem.
+    pip3 install pyobjc-framework-Cocoa, then restart.
 
   App crashes on launch
-  ----------------------
-  Check the crash report in:  ~/Library/Logs/DiagnosticReports/
-  The most common cause is a camera permission issue or a missing Python
-  package. Run "python3 main.py" in Terminal to see the full error output.
+    Run "python3 main.py" in Terminal to see error output.
+    Check ~/Library/Logs/DiagnosticReports/ for crash reports.
 
   Rebuilding the app bundle
-  --------------------------
-  If you modify source files, rebuild the bundle with:
-      cd ~/Desktop/DataScienceMiniProject
-      python3 setup.py py2app --alias
-  The updated bundle is placed in dist/Irestrem.app.
+    python3 setup.py py2app --alias
+    Updated bundle placed in dist/Irestrem.app.
 
 ================================================================================
-  13. KEYBOARD & MOUSE REFERENCE
+  A13. KEYBOARD & MOUSE REFERENCE
 ================================================================================
-
-  Main window
-  ~~~~~~~~~~~~
-  Resize window     Drag any window edge or corner.
-  Minimum size      580 × 520 px (enforced automatically).
 
   Break pop-up
-  ~~~~~~~~~~~~~
-  Done              Click "Done — I took a break" → completes break, resets timer.
-  Skip              Click "Skip" or close the window → resets timer without credit.
+    "Done — I took a break" → completes break, resets timer.
+    "Skip" or close window  → resets timer without credit.
 
   Menu bar
-  ~~~~~~~~~
-  Click status item → Shows a dropdown menu.
-  "Quit Irestrem"   → Terminates the application completely.
+    Click status item → dropdown menu.
+    "Quit Irestrem"   → terminates the application.
 
 ================================================================================
-  14. PRIVACY & DATA
+  A14. PRIVACY & DATA
+================================================================================
+
+  Video frames are processed entirely in memory on your local machine.
+  No frames, images, or screenshots are written to disk.
+  No data is transmitted to any external server or service.
+  Session statistics are held in memory and discarded on exit.
+
+
+================================================================================
+  PART B — ATTENTION MONITOR SYSTEM
+================================================================================
+
+================================================================================
+  B1. OVERVIEW
+================================================================================
+
+  The Attention Monitor is a classroom attention tracking system that works
+  alongside any video conferencing application (Zoom, Google Meet, Microsoft
+  Teams, or any browser-based meeting). It answers one question for the teacher
+  in real time: which students are actually looking at the screen?
+
+  Design principles
+  -----------------
+  • Privacy-first: no video is ever transmitted. Each student's webcam is
+    processed locally; only a small JSON status blob (~200 bytes) is sent to
+    the server every 2 seconds.
+  • Zero-dependency network protocol: plain HTTP + JSON. No WebSockets,
+    no message brokers, no external cloud services.
+  • Embeddable core: the AttentionMonitor class (attention_monitor.py) is a
+    standalone module — it only requires OpenCV and NumPy and can be dropped
+    into any application that can supply BGR video frames.
+  • Platform-agnostic: all four components run on macOS, Linux, and Windows.
+
+================================================================================
+  B2. SYSTEM ARCHITECTURE
+================================================================================
+
+  Student machine (one per student)       Teacher machine
+  ──────────────────────────────────      ──────────────────────────────
+  Webcam                                  attention_server.py
+    │ BGR frames                            │  (HTTPServer, port 8765)
+    ▼                                       │
+  AttentionMonitor                          │  POST /update  ←── student_client.py
+    │ face + eye detection                  │  GET /students ──► teacher_dashboard.py
+    │ gaze_status, attention_score          │
+    ▼                                       ▼
+  student_client.py                       teacher_dashboard.py
+    │ small floating UI                    Live grid — one card per student
+    │ shows own status                     Sorted: absent → not looking → present
+    └── POST /update every 2 s ──────────► Refreshes every 3 seconds
+
+  Key data flow facts
+  -------------------
+  • No video travels over the network at any point.
+  • The server holds all student state in memory (Python dict); nothing is
+    written to disk.
+  • The server enforces a 10-second timeout: if a student's client stops
+    sending, that student is automatically shown as "absent".
+
+================================================================================
+  B3. COMPONENTS
+================================================================================
+
+  ──────────────────────────────────────────────────────────────────────────────
+  B3.1  AttentionMonitor module  (attention_monitor.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  The core detection engine. Designed as an embeddable module — the rest of
+  the system is just infrastructure around it.
+
+  Detection pipeline (per frame)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  1. Convert frame to greyscale + histogram-equalise.
+  2. Frontal face cascade (haarcascade_frontalface_default.xml):
+       • If a face is found, check frontality (w/h ratio).
+       • w/h < 0.40 → head significantly rotated → "looking_away".
+       • Otherwise run eye cascade inside the face ROI.
+       • Eyes are used for confidence scoring only, NOT as a binary gate
+         (Haar eye cascade is too noisy with glasses/blinks to gate on).
+       • Return "present".
+  3. Profile face cascade fallback (haarcascade_profileface.xml):
+       • Confirms lateral head rotation → "looking_away".
+  4. No face found → "absent".
+
+  Smoothing (majority vote)
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Raw per-frame results are pushed into a deque of size SMOOTH_WINDOW = 20.
+  The most common status in the buffer is the reported gaze_status.
+  At ~15 detections/s this represents ~1.3 seconds of smoothing, eliminating
+  single-frame noise (blinks, brief head turns, lighting flicker).
+
+  Rolling attention score
+  ~~~~~~~~~~~~~~~~~~~~~~~~
+  A deque of (timestamp, is_present) tuples covers the last history_window
+  seconds (default 60 s). The score is the fraction of "present" frames in
+  that window, giving a stable 0.0–1.0 metric suitable for dashboards.
+
+  Away threshold
+  ~~~~~~~~~~~~~~~
+  is_attending flips False only after away_threshold seconds (default 3 s) of
+  continuous inattention. This suppresses brief single-frame blips.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  B3.2  Attention Server  (attention_server.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  A minimal HTTP server built on Python's stdlib http.server. Requires no
+  third-party packages. Holds all student state in a thread-safe in-memory
+  dict protected by threading.Lock.
+
+  Endpoints — see Section B5 for full API reference.
+
+  CORS headers are set on all responses so browser-based dashboards or
+  extensions can also call the API directly.
+
+  Student timeout: if a student's last_seen timestamp is more than
+  STUDENT_TIMEOUT_S = 10 seconds old, the GET /students response overrides
+  that student's status to "absent" and sets away_duration_s to the elapsed
+  silent seconds. This ensures the teacher sees disconnections immediately
+  without requiring students to send an explicit "disconnect" message.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  B3.3  Student Client  (student_client.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  Runs on the student's machine alongside any meeting app. Opens the webcam
+  in a background thread, processes every other frame through AttentionMonitor,
+  and sends a JSON status POST to the server every 2 seconds from a second
+  background thread.
+
+  Threading model
+  ~~~~~~~~~~~~~~~~
+  • Camera thread: cv2.VideoCapture opened here (NSRunLoop rule — same as
+    the Irestrem app). Pushes AttentionResult objects into a queue (maxsize=5).
+  • Sender thread: reads self._latest (set by poll), sends POST every 2 s.
+  • Main thread: Tkinter mainloop + root.after(500, _poll) drains the queue
+    and updates the UI labels.
+
+  UI
+  ~~~
+  A 280 × 90 px window that floats above the meeting app (attributes -topmost).
+  Shows: app name, student name, coloured status dot, status label, server
+  connection status. Stays out of the way while remaining visible at all times.
+
+  Camera note
+  ~~~~~~~~~~~~
+  On macOS, the webcam can be shared between apps simultaneously.
+  On Windows, only one app can hold the camera; use OBS Virtual Camera as an
+  intermediary so the meeting app and this client both get a feed.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  B3.4  Teacher Dashboard  (teacher_dashboard.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  A Tkinter application that polls GET /students every 3 seconds (in a
+  background thread) and renders a scrollable grid of student cards.
+
+  Card layout
+  ~~~~~~~~~~~~
+  Each card has:
+  • 2 px coloured left border (the outer frame's background colour bleeds through
+    with padx=2, pady=2) — green / orange / red.
+  • Student name (bold, white).
+  • Full-width coloured status badge with white text ("Looking at screen",
+    "Not looking", "Not at desk").
+  • Attention score progress bar (thin, coloured fill on dark background).
+  • Attention percentage label (coloured, bold).
+  • Away timer label (only shown when away_duration_s ≥ 2 s).
+
+  Sorting: absent → looking_away → present (most problematic first), then
+  alphabetically within each group.
+
+  Header summary: coloured dot counts per status ("● 3 present", etc.).
+
+  Important implementation note
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  The inner card frame must NOT use pack_propagate(False) without also setting
+  an explicit height. pack_propagate(False) prevents Tkinter from auto-sizing
+  the frame to fit its children; without a height set, the frame collapses to
+  0 px and all labels (including the student name) become invisible. The frame
+  must be left to auto-size, or an explicit height must be provided.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  B3.5  Demo Simulator  (_demo_sim.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  A standalone helper script that simulates 5 students with rotating attention
+  states. Run it alongside the server to populate the dashboard for demos or
+  testing without needing real webcam clients.
+
+  Each student cycles through their base status on a fixed pattern, with
+  attention scores that drift up when present and down when away.
+  Sends updates every 2 seconds — the same interval as a real student client.
+
+================================================================================
+  B4. RUNNING THE SYSTEM
+================================================================================
+
+  Quick start (single machine demo)
+  -----------------------------------
+
+  Terminal 1 — Start the server:
+      python3 attention_server.py
+
+  Terminal 2 — Start the demo simulator (optional, for testing):
+      python3 _demo_sim.py
+
+  Terminal 3 — Open your own student client:
+      python3 student_client.py --server http://localhost:8765 --name "YourName"
+
+  Terminal 4 — Open the teacher dashboard:
+      python3 teacher_dashboard.py --server http://localhost:8765
+
+  Classroom deployment (multiple machines)
+  -----------------------------------------
+
+  Step 1: Teacher starts the server on their machine:
+      python3 attention_server.py
+      → Note the IP address printed (e.g. 192.168.1.10)
+
+  Step 2: Teacher opens the dashboard:
+      python3 teacher_dashboard.py
+      (defaults to http://localhost:8765)
+
+  Step 3: Share this command with students (replace IP):
+      python3 student_client.py --server http://192.168.1.10:8765
+      → A name dialog appears on first run, or use --name "Alice"
+
+  Step 4: Students run the command alongside their meeting app.
+  The small floating window shows each student their own gaze status.
+  The teacher dashboard updates automatically as students connect.
+
+  Standalone gaze detection demo (no server needed)
+  ---------------------------------------------------
+      python3 attention_monitor.py
+  Opens the default webcam with live attention overlay. Press Q to quit.
+  Session statistics are printed to the terminal on exit.
+
+================================================================================
+  B5. SERVER HTTP API REFERENCE
+================================================================================
+
+  Base URL: http://<host>:8765
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ POST /update
+  └─────────────────────────────────────────────────────────────────────────────
+  Register or update a student's attention status.
+
+  Request body (JSON):
+  ┌──────────────────┬──────────────────────────────────────────────────────────┐
+  │ Field            │ Description                                              │
+  ├──────────────────┼──────────────────────────────────────────────────────────┤
+  │ name    string   │ Student display name (required, non-empty)               │
+  │ status  string   │ "present" | "looking_away" | "absent"                   │
+  │ attention_score  │ 0.0–1.0 rolling attention fraction (optional)            │
+  │ away_duration_s  │ Seconds of continuous inattention (optional)             │
+  └──────────────────┴──────────────────────────────────────────────────────────┘
+
+  Success response (200):  { "ok": true }
+  Error response   (400):  { "error": "<message>" }
+
+  Example:
+      curl -X POST http://localhost:8765/update \
+        -H "Content-Type: application/json" \
+        -d '{"name":"Alice","status":"present","attention_score":0.92,"away_duration_s":0}'
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ GET /students
+  └─────────────────────────────────────────────────────────────────────────────
+  Returns the current status of all known students.
+
+  Response (200): JSON array of student objects:
+  ┌──────────────────┬──────────────────────────────────────────────────────────┐
+  │ Field            │ Description                                              │
+  ├──────────────────┼──────────────────────────────────────────────────────────┤
+  │ name             │ Student name                                             │
+  │ status           │ "present" | "looking_away" | "absent"                   │
+  │ attention_score  │ 0.0–1.0                                                  │
+  │ away_duration_s  │ Seconds away (overridden if client timed out)            │
+  │ last_seen        │ Unix timestamp of last POST                              │
+  └──────────────────┴──────────────────────────────────────────────────────────┘
+
+  Students whose last POST was more than 10 seconds ago have their status
+  overridden to "absent" with away_duration_s set to the elapsed gap.
+
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ GET /status
+  └─────────────────────────────────────────────────────────────────────────────
+  Server health check.
+
+  Response (200): { "students": <count>, "uptime_s": <seconds> }
+
+================================================================================
+  B6. AttentionMonitor PYTHON API REFERENCE
+================================================================================
+
+  from attention_monitor import AttentionMonitor, AttentionResult
+
+  ── Constructor ──────────────────────────────────────────────────────────────
+
+  AttentionMonitor(
+      history_window = 60.0,   # seconds of history for attention_score
+      away_threshold = 3.0,    # seconds before is_attending flips False
+      fps_hint       = 30.0,   # expected frame rate (pre-sizes history deque)
+  )
+
+  ── Methods ──────────────────────────────────────────────────────────────────
+
+  process_frame(frame: np.ndarray) → AttentionResult
+    Analyse one BGR video frame. Thread-safe. Do not share a single
+    AttentionMonitor instance across multiple student streams.
+
+  draw_overlay(frame: np.ndarray, result: AttentionResult) → np.ndarray
+    Return a copy of frame annotated with gaze status, attention score,
+    and (if relevant) away timer. Suitable for debug views or local display.
+
+  get_session_stats() → dict
+    Return session-level statistics:
+      session_duration_s      total elapsed seconds
+      rolling_attention_pct   attention % over last history_window seconds
+      total_absent_s          cumulative seconds of inattention
+      overall_attention_pct   session-wide (present / elapsed) × 100
+
+  reset() → None
+    Clear all history and counters. Call at the start of a new class session.
+
+  ── AttentionResult fields ───────────────────────────────────────────────────
+
+  is_attending      bool     True until away_threshold seconds of absence
+  gaze_status       str      "present" | "looking_away" | "absent"
+  confidence        float    Detection confidence in [0.0, 1.0]
+  face_bbox         tuple    (x, y, w, h) or None — last known face position
+  attention_score   float    Rolling mean of "present" frames (0.0–1.0)
+  away_duration_s   float    Seconds of current absence streak
+  total_absent_s    float    Cumulative absent seconds since start / last reset
+  eyes_detected     int      Number of eyes detected (0, 1, or 2)
+
+  ── Minimal integration example ──────────────────────────────────────────────
+
+      from attention_monitor import AttentionMonitor
+      import cv2
+
+      monitor = AttentionMonitor()
+      cap = cv2.VideoCapture(0)
+
+      while True:
+          ret, frame = cap.read()
+          result = monitor.process_frame(frame)
+          # result.gaze_status      → 'present' | 'looking_away' | 'absent'
+          # result.attention_score  → 0.0–1.0 rolling average
+          # result.is_attending     → smoothed bool
+
+================================================================================
+  B7. INTEGRATION GUIDE
+================================================================================
+
+  The Attention Monitor is designed for extension. The server exposes a plain
+  HTTP/JSON API; the AttentionMonitor module has no external dependencies
+  beyond OpenCV and NumPy. This makes it straightforward to replace or augment
+  any layer.
+
+  Browser Extension (recommended next step)
+  ------------------------------------------
+  Replace student_client.py with a Chrome/Edge extension:
+  • Use navigator.mediaDevices.getUserMedia() to access the webcam.
+  • Run MediaPipe FaceMesh (WASM) in-browser for gaze detection — no install,
+    no Python required on the student's machine.
+  • POST the same JSON payload to the existing /update endpoint.
+  • Works on Google Meet, Zoom Web, and Microsoft Teams Web.
+  • The server requires no changes — CORS is already enabled on all endpoints.
+
+  Zoom Apps SDK
+  --------------
+  Build a Zoom App (a small web app that runs inside the meeting as a sidebar):
+  • The app renders the teacher dashboard UI (port the Tkinter dashboard to HTML).
+  • Gaze detection still runs client-side (browser or a companion desktop app).
+  • Use the Zoom Apps SDK to restrict visibility to the host (teacher) only.
+
+  Microsoft Teams Toolkit
+  ------------------------
+  Build a Teams meeting extension with a Tab:
+  • Same approach as Zoom: HTML dashboard embedded as a tab.
+  • Use the Teams JS SDK to check if the current user is the meeting organiser
+    before showing the teacher view.
+
+  LMS Integration (Moodle, Canvas, Blackboard)
+  ---------------------------------------------
+  • Embed teacher_dashboard as an <iframe> pointing at a hosted server.
+  • Students click a "Join session" button that triggers the student client
+    (browser extension or downloadable launcher).
+  • Session data can be exported from /students for gradebook integration.
+
+  Per-student AttentionMonitor (teacher-side decoding)
+  -----------------------------------------------------
+  If students share encoded video (e.g. WebRTC tracks), the teacher machine can
+  run one AttentionMonitor instance per student, feeding decoded frames into
+  each instance independently. The returned AttentionResult objects are then
+  displayed directly in the dashboard without needing the HTTP server layer.
+
+================================================================================
+  B8. CONFIGURATION REFERENCE
+================================================================================
+
+  attention_monitor.py
+  ┌──────────────────────┬─────────┬────────────────────────────────────────────┐
+  │ Parameter            │ Default │ Description                                │
+  ├──────────────────────┼─────────┼────────────────────────────────────────────┤
+  │ history_window       │ 60.0 s  │ Rolling window for attention_score         │
+  │ away_threshold       │  3.0 s  │ Delay before is_attending flips False      │
+  │ SMOOTH_WINDOW        │ 20      │ Majority-vote buffer size (frames)         │
+  └──────────────────────┴─────────┴────────────────────────────────────────────┘
+
+  attention_server.py
+  ┌──────────────────────┬─────────┬────────────────────────────────────────────┐
+  │ Constant             │ Default │ Description                                │
+  ├──────────────────────┼─────────┼────────────────────────────────────────────┤
+  │ STUDENT_TIMEOUT_S    │ 10 s    │ Silence before a student is marked absent  │
+  │ --port               │ 8765    │ Listening port (command-line argument)     │
+  └──────────────────────┴─────────┴────────────────────────────────────────────┘
+
+  student_client.py
+  ┌──────────────────────┬─────────┬────────────────────────────────────────────┐
+  │ Constant             │ Default │ Description                                │
+  ├──────────────────────┼─────────┼────────────────────────────────────────────┤
+  │ SEND_INTERVAL_S      │ 2 s     │ Seconds between status POSTs               │
+  │ POLL_MS              │ 500 ms  │ Tkinter refresh rate                       │
+  └──────────────────────┴─────────┴────────────────────────────────────────────┘
+
+  teacher_dashboard.py
+  ┌──────────────────────┬─────────┬────────────────────────────────────────────┐
+  │ Constant             │ Default │ Description                                │
+  ├──────────────────────┼─────────┼────────────────────────────────────────────┤
+  │ REFRESH_MS           │ 3000 ms │ Dashboard polling interval                 │
+  │ GRID_COLS            │ 3       │ Student cards per row                      │
+  └──────────────────────┴─────────┴────────────────────────────────────────────┘
+
+================================================================================
+  B9. TROUBLESHOOTING
+================================================================================
+
+  Dashboard shows no students
+    • Verify the server is running: curl http://localhost:8765/status
+    • Check student clients are pointed at the correct server IP and port.
+    • Students who haven't sent a POST in >10 s are shown as absent, but they
+      still appear — "no students" means no client has ever connected.
+
+  Student card content not visible (blank cards)
+    This is caused by pack_propagate(False) on the inner card frame without a
+    height set — the frame collapses to 0 px. Remove pack_propagate(False) from
+    the inner frame in teacher_dashboard.py (_make_card method).
+
+  Camera not opening (student client)
+    • macOS: System Settings → Privacy & Security → Camera → enable Terminal
+      or the application.
+    • Windows: only one app can hold the camera at a time. Use OBS Virtual
+      Camera so both the meeting app and student_client.py can access a feed.
+
+  "Server unreachable" in student client
+    • Verify the server is running on the teacher's machine.
+    • Check that port 8765 is not blocked by a firewall.
+    • On Windows: allow the port through Windows Defender Firewall.
+    • Try a different port: python3 attention_server.py --port 9000
+
+  Gaze detection is inaccurate
+    • Ensure the student is well-lit from the front (no strong backlight).
+    • The frontal Haar cascade works best when the student faces the camera
+      directly. Extreme angles reduce accuracy.
+    • SMOOTH_WINDOW in attention_monitor.py controls how many frames are used
+      for majority voting — increase it to reduce jitter at the cost of latency.
+
+================================================================================
+  B10. PRIVACY & DATA
 ================================================================================
 
   Camera data
   ------------
-  Video frames are processed entirely in memory on your local machine.
-  No video frames, images, or screenshots are written to disk.
-  No data is transmitted to any external server or service.
+  Video frames are processed entirely in memory on the student's machine.
+  No frames, images, or screenshots are ever sent over the network.
 
-  Session data
+  Network data
   -------------
-  Session statistics (duration, break count, posture history) are held in
-  memory only and are discarded when the application exits. Nothing is written
-  to a database, file, or user defaults.
+  The only data transmitted is a small JSON object (~200 bytes) every 2 seconds:
+    { "name", "status", "attention_score", "away_duration_s" }
+  No biometric data, face images, or raw sensor readings are transmitted.
 
-  System notifications
-  ----------------------
-  Notification text is generated locally. No notification content is logged
-  or transmitted externally.
+  Server storage
+  ---------------
+  The server holds student status in a Python dict in memory only. Nothing is
+  written to disk, a database, or any external service. All data is lost when
+  the server process exits.
 
-  Camera permission
-  ------------------
-  Irestrem requests camera access via the standard macOS privacy framework.
-  Access can be revoked at any time from System Settings → Privacy & Security
-  → Camera without affecting any stored data (there is none).
+  Name handling
+  --------------
+  Student names are provided by the students themselves. No authentication or
+  identity verification is performed. Names are stored only for the duration
+  of the server session.
+
 
 ================================================================================
   END OF DOCUMENTATION
 ================================================================================
 
-  Irestrem v1.0 — Built with Python 3.14, OpenCV 4.x, Tkinter, PyObjC
-  Platform: macOS (universal binary — Apple Silicon & Intel)
+  Irestrem v1.1 — Built with Python 3.14, OpenCV 4.x, Tkinter
+  Platform: macOS (primary), Linux and Windows (supported)
 
 ================================================================================
