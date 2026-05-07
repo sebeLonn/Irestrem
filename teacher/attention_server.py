@@ -72,7 +72,6 @@ class _Handler(BaseHTTPRequestHandler):
                     entry = dict(s)
                     silent_s = now - s['last_seen']
                     if silent_s > STUDENT_TIMEOUT_S:
-                        # Client stopped sending — treat as disconnected
                         entry['status'] = 'absent'
                         entry['away_duration_s'] = silent_s
                     result.append(entry)

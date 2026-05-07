@@ -1,12 +1,12 @@
 ================================================================================
   IRESTREM — TECHNICAL DOCUMENTATION
-  Version 1.1
+  Version 1.2
 ================================================================================
 
   This document covers both systems included in the Irestrem project:
 
     PART A — Eye Strain Prevention App  (main.py, ui.py, detector.py, …)
-    PART B — Attention Monitor System   (attention_monitor.py, attention_server.py, …)
+    PART B — Attention Monitor System   (student/, teacher/)
 
 ================================================================================
   TABLE OF CONTENTS
@@ -38,19 +38,21 @@
   ---------------------------
   B1.   Overview
   B2.   System Architecture
-  B3.   Components
-          B3.1  AttentionMonitor module    (attention_monitor.py)
-          B3.2  Attention Server           (attention_server.py)
-          B3.3  Student Client             (student_client.py)
-          B3.4  Teacher Dashboard          (teacher_dashboard.py)
-          B3.5  Demo Simulator             (_demo_sim.py)
-  B4.   Running the System
-  B5.   Server HTTP API Reference
-  B6.   AttentionMonitor Python API Reference
-  B7.   Integration Guide
-  B8.   Configuration Reference
-  B9.   Troubleshooting
-  B10.  Privacy & Data
+  B3.   Package Layout
+  B4.   Components
+          B4.1  AttentionMonitor module    (attention_monitor.py)
+          B4.2  Attention Server           (teacher/attention_server.py)
+          B4.3  Student Client             (student/student_client.py)
+          B4.4  Teacher App               (teacher/teacher_app.py)
+          B4.5  Teacher Dashboard          (teacher/teacher_dashboard.py)
+  B5.   Running the System
+  B6.   Building the App Bundles
+  B7.   Server HTTP API Reference
+  B8.   AttentionMonitor Python API Reference
+  B9.   Integration Guide
+  B10.  Configuration Reference
+  B11.  Troubleshooting
+  B12.  Privacy & Data
 
 
 ================================================================================
@@ -345,18 +347,34 @@
   A10. FILE STRUCTURE
 ================================================================================
 
-  DataScienceMiniProject/
+  Irestrem/
   ├── main.py              Entry point
   ├── ui.py                GUI, camera pipeline, status bar
   ├── detector.py          Face detection + distance estimation
   ├── tracker.py           Session timing and break scheduling
   ├── notifier.py          Notification dispatcher
+  ├── attention_monitor.py Core gaze detection module (shared)
   ├── app_icon.py          Icon generator
   ├── setup.py             py2app build configuration
   ├── requirements.txt     Python dependencies
   ├── AppIcon.icns         App icon (all macOS sizes)
   ├── AppIcon.png          App icon source (512 × 512 px)
-  └── Irestrem.app/        macOS application bundle
+  ├── Irestrem.app/        macOS application bundle
+  │
+  ├── student/             Student-side package (distribute this folder)
+  │   ├── student_client.py
+  │   ├── attention_monitor.py
+  │   ├── setup.py
+  │   ├── requirements.txt
+  │   └── dist/AttentionMonitor.app
+  │
+  └── teacher/             Teacher-side package (keep on your machine)
+      ├── teacher_app.py
+      ├── teacher_dashboard.py
+      ├── attention_server.py
+      ├── setup.py
+      ├── requirements.txt
+      └── dist/TeacherDashboard.app
 
 ================================================================================
   A11. CONFIGURATION REFERENCE
@@ -455,12 +473,19 @@
   • Privacy-first: no video is ever transmitted. Each student's webcam is
     processed locally; only a small JSON status blob (~200 bytes) is sent to
     the server every 2 seconds.
+  • Separated packages: the student package (student/) contains only what
+    students need — no server code, no dashboard, no teacher tooling.
+  • No terminal required: both student and teacher sides ship as double-
+    clickable macOS app bundles. Students enter a server address and their
+    name via dialog boxes; teachers get the IP to share displayed on launch.
   • Zero-dependency network protocol: plain HTTP + JSON. No WebSockets,
     no message brokers, no external cloud services.
   • Embeddable core: the AttentionMonitor class (attention_monitor.py) is a
     standalone module — it only requires OpenCV and NumPy and can be dropped
     into any application that can supply BGR video frames.
-  • Platform-agnostic: all four components run on macOS, Linux, and Windows.
+  • Clean sessions: all student data lives in server memory only. Every time
+    TeacherDashboard.app launches, it starts with a completely empty student
+    list — no stale data from previous sessions.
 
 ================================================================================
   B2. SYSTEM ARCHITECTURE
@@ -468,32 +493,55 @@
 
   Student machine (one per student)       Teacher machine
   ──────────────────────────────────      ──────────────────────────────
-  Webcam                                  attention_server.py
-    │ BGR frames                            │  (HTTPServer, port 8765)
-    ▼                                       │
-  AttentionMonitor                          │  POST /update  ←── student_client.py
-    │ face + eye detection                  │  GET /students ──► teacher_dashboard.py
+  Webcam                                  TeacherDashboard.app
+    │ BGR frames                            ├─ attention_server (background thread)
+    ▼                                       │    HTTPServer, port 8765
+  AttentionMonitor                          │    POST /update  ←── student_client
+    │ face + eye detection                  │    GET  /students ──► dashboard
     │ gaze_status, attention_score          │
-    ▼                                       ▼
-  student_client.py                       teacher_dashboard.py
-    │ small floating UI                    Live grid — one card per student
-    │ shows own status                     Sorted: absent → not looking → present
-    └── POST /update every 2 s ──────────► Refreshes every 3 seconds
+    ▼                                       ├─ Startup dialog: shows student URL
+  AttentionMonitor.app                      │
+    │ 280×90 px floating widget            └─ teacher_dashboard (Tkinter grid)
+    │ shows own status                          One card per student
+    └── POST /update every 2 s ───────────►    Refreshes every 3 seconds
 
   Key data flow facts
   -------------------
   • No video travels over the network at any point.
   • The server holds all student state in memory (Python dict); nothing is
-    written to disk.
+    written to disk. All data is lost when TeacherDashboard.app quits.
   • The server enforces a 10-second timeout: if a student's client stops
     sending, that student is automatically shown as "absent".
 
 ================================================================================
-  B3. COMPONENTS
+  B3. PACKAGE LAYOUT
+================================================================================
+
+  The system is divided into two self-contained directories:
+
+  student/                   Distribute this to students
+  ├── student_client.py      Main entry point — dialog-based, no CLI args
+  ├── attention_monitor.py   Core gaze detection (local copy)
+  ├── setup.py               py2app build config
+  ├── requirements.txt       opencv-python, numpy
+  └── dist/
+      └── AttentionMonitor.app  Double-clickable student app
+
+  teacher/                   Keep on the teacher's machine
+  ├── teacher_app.py         Combined launcher: server thread + dashboard
+  ├── teacher_dashboard.py   Live student grid (Tkinter)
+  ├── attention_server.py    Lightweight HTTP server (stdlib only)
+  ├── setup.py               py2app build config
+  ├── requirements.txt       stdlib only — no pip installs needed
+  └── dist/
+      └── TeacherDashboard.app  Double-clickable teacher app
+
+================================================================================
+  B4. COMPONENTS
 ================================================================================
 
   ──────────────────────────────────────────────────────────────────────────────
-  B3.1  AttentionMonitor module  (attention_monitor.py)
+  B4.1  AttentionMonitor module  (attention_monitor.py)
   ──────────────────────────────────────────────────────────────────────────────
 
   The core detection engine. Designed as an embeddable module — the rest of
@@ -532,14 +580,17 @@
   continuous inattention. This suppresses brief single-frame blips.
 
   ──────────────────────────────────────────────────────────────────────────────
-  B3.2  Attention Server  (attention_server.py)
+  B4.2  Attention Server  (teacher/attention_server.py)
   ──────────────────────────────────────────────────────────────────────────────
 
   A minimal HTTP server built on Python's stdlib http.server. Requires no
   third-party packages. Holds all student state in a thread-safe in-memory
   dict protected by threading.Lock.
 
-  Endpoints — see Section B5 for full API reference.
+  The server starts as a daemon thread inside teacher_app.py. It is NOT run
+  as a separate process — starting TeacherDashboard.app starts everything.
+
+  Endpoints — see Section B7 for full API reference.
 
   CORS headers are set on all responses so browser-based dashboards or
   extensions can also call the API directly.
@@ -550,14 +601,23 @@
   silent seconds. This ensures the teacher sees disconnections immediately
   without requiring students to send an explicit "disconnect" message.
 
+  Session isolation: _students is a module-level dict initialised to {}.
+  Every time teacher_app.py starts (i.e. every time TeacherDashboard.app
+  is launched), the dict is freshly empty. There is no persistence between
+  sessions.
+
   ──────────────────────────────────────────────────────────────────────────────
-  B3.3  Student Client  (student_client.py)
+  B4.3  Student Client  (student/student_client.py)
   ──────────────────────────────────────────────────────────────────────────────
 
-  Runs on the student's machine alongside any meeting app. Opens the webcam
-  in a background thread, processes every other frame through AttentionMonitor,
-  and sends a JSON status POST to the server every 2 seconds from a second
-  background thread.
+  Runs on the student's machine alongside any meeting app. Presents two
+  dialog boxes on launch (server address and student name), then opens the
+  webcam in a background thread, processes every other frame through
+  AttentionMonitor, and sends a JSON status POST to the server every 2
+  seconds from a second background thread.
+
+  No command-line arguments are required. Students simply double-click
+  AttentionMonitor.app and fill in the dialogs.
 
   Threading model
   ~~~~~~~~~~~~~~~~
@@ -570,8 +630,8 @@
   UI
   ~~~
   A 280 × 90 px window that floats above the meeting app (attributes -topmost).
-  Shows: app name, student name, coloured status dot, status label, server
-  connection status. Stays out of the way while remaining visible at all times.
+  Shows: app name, student name, coloured status dot, status label, and server
+  connection status ("Connected to teacher server" / "Cannot reach server").
 
   Camera note
   ~~~~~~~~~~~~
@@ -580,7 +640,27 @@
   intermediary so the meeting app and this client both get a feed.
 
   ──────────────────────────────────────────────────────────────────────────────
-  B3.4  Teacher Dashboard  (teacher_dashboard.py)
+  B4.4  Teacher App  (teacher/teacher_app.py)
+  ──────────────────────────────────────────────────────────────────────────────
+
+  The entry point for TeacherDashboard.app. Combines server startup and
+  dashboard launch into a single double-click:
+
+  1. Calls _start_server() — creates HTTPServer(('0.0.0.0', 8765), _Handler)
+     and starts it in a daemon thread. The thread terminates automatically
+     when the main process exits (i.e. when the teacher closes the dashboard).
+
+  2. Detects the machine's local IP address by opening a UDP socket to 8.8.8.8
+     (no data is sent; this just triggers OS routing to populate getsockname()).
+
+  3. Shows a Tkinter messagebox with the student URL (e.g. 192.168.1.10:8765)
+     so the teacher knows exactly what address to share before the class starts.
+
+  4. Calls TeacherDashboard('http://localhost:8765').run() — the dashboard
+     connects to the local server and enters the Tkinter event loop.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  B4.5  Teacher Dashboard  (teacher/teacher_dashboard.py)
   ──────────────────────────────────────────────────────────────────────────────
 
   A Tkinter application that polls GET /students every 3 seconds (in a
@@ -589,11 +669,10 @@
   Card layout
   ~~~~~~~~~~~~
   Each card has:
-  • 2 px coloured left border (the outer frame's background colour bleeds through
-    with padx=2, pady=2) — green / orange / red.
+  • 2 px coloured left border — green / orange / red.
   • Student name (bold, white).
-  • Full-width coloured status badge with white text ("Looking at screen",
-    "Not looking", "Not at desk").
+  • Full-width coloured status badge ("Looking at screen", "Not looking",
+    "Not at desk").
   • Attention score progress bar (thin, coloured fill on dark background).
   • Attention percentage label (coloured, bold).
   • Away timer label (only shown when away_duration_s ≥ 2 s).
@@ -602,64 +681,41 @@
   alphabetically within each group.
 
   Header summary: coloured dot counts per status ("● 3 present", etc.).
-
-  Important implementation note
-  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  The inner card frame must NOT use pack_propagate(False) without also setting
-  an explicit height. pack_propagate(False) prevents Tkinter from auto-sizing
-  the frame to fit its children; without a height set, the frame collapses to
-  0 px and all labels (including the student name) become invisible. The frame
-  must be left to auto-size, or an explicit height must be provided.
-
-  ──────────────────────────────────────────────────────────────────────────────
-  B3.5  Demo Simulator  (_demo_sim.py)
-  ──────────────────────────────────────────────────────────────────────────────
-
-  A standalone helper script that simulates 5 students with rotating attention
-  states. Run it alongside the server to populate the dashboard for demos or
-  testing without needing real webcam clients.
-
-  Each student cycles through their base status on a fixed pattern, with
-  attention scores that drift up when present and down when away.
-  Sends updates every 2 seconds — the same interval as a real student client.
+  Footer: server URL (left) and last-updated timestamp (right).
 
 ================================================================================
-  B4. RUNNING THE SYSTEM
+  B5. RUNNING THE SYSTEM
 ================================================================================
 
-  Quick start (single machine demo)
-  -----------------------------------
+  Classroom deployment (recommended — no terminal needed)
+  --------------------------------------------------------
 
-  Terminal 1 — Start the server:
-      python3 attention_server.py
+  Step 1: Teacher double-clicks TeacherDashboard.app.
+    → A startup dialog shows the student URL, e.g.: 192.168.1.10:8765
+    → Click OK. The dashboard opens and waits for students to connect.
 
-  Terminal 2 — Start the demo simulator (optional, for testing):
-      python3 _demo_sim.py
+  Step 2: Teacher shares that address with students (chat, slide, or verbally).
 
-  Terminal 3 — Open your own student client:
-      python3 student_client.py --server http://localhost:8765 --name "YourName"
+  Step 3: Each student double-clicks AttentionMonitor.app.
+    → Dialog 1: "Enter the server address your teacher gave you"
+                 Student types:  192.168.1.10:8765
+    → Dialog 2: "Enter your name"
+    → A small floating window appears. Leave it running during class.
 
-  Terminal 4 — Open the teacher dashboard:
-      python3 teacher_dashboard.py --server http://localhost:8765
+  The dashboard updates automatically as students connect. Students missing
+  for more than 10 seconds are shown as "absent".
 
-  Classroom deployment (multiple machines)
-  -----------------------------------------
+  Terminal usage (advanced / development)
+  ----------------------------------------
 
-  Step 1: Teacher starts the server on their machine:
-      python3 attention_server.py
-      → Note the IP address printed (e.g. 192.168.1.10)
+  Start server:
+      cd teacher && python3 attention_server.py
 
-  Step 2: Teacher opens the dashboard:
-      python3 teacher_dashboard.py
-      (defaults to http://localhost:8765)
+  Start dashboard (in a second terminal):
+      cd teacher && python3 teacher_dashboard.py
 
-  Step 3: Share this command with students (replace IP):
-      python3 student_client.py --server http://192.168.1.10:8765
-      → A name dialog appears on first run, or use --name "Alice"
-
-  Step 4: Students run the command alongside their meeting app.
-  The small floating window shows each student their own gaze status.
-  The teacher dashboard updates automatically as students connect.
+  Start student client:
+      cd student && python3 student_client.py
 
   Standalone gaze detection demo (no server needed)
   ---------------------------------------------------
@@ -668,7 +724,44 @@
   Session statistics are printed to the terminal on exit.
 
 ================================================================================
-  B5. SERVER HTTP API REFERENCE
+  B6. BUILDING THE APP BUNDLES
+================================================================================
+
+  Both apps are built with py2app in alias mode (source files are referenced
+  in place — Python and packages must be installed on the build machine).
+
+  Prerequisites
+  --------------
+      pip3 install py2app
+      pip3 install -r requirements.txt          # for root Irestrem app
+      pip3 install -r student/requirements.txt  # for student app
+
+  Build commands
+  ---------------
+      # Eye Strain Prevention app
+      python3 setup.py py2app --alias
+
+      # Student app
+      cd student && python3 setup.py py2app --alias
+
+      # Teacher app (stdlib only — no pip installs needed)
+      cd teacher && python3 setup.py py2app --alias
+
+  Output locations
+  -----------------
+      dist/Irestrem.app
+      student/dist/AttentionMonitor.app
+      teacher/dist/TeacherDashboard.app
+
+  First-launch Gatekeeper bypass
+  --------------------------------
+  All three apps are unsigned. On first launch:
+      Right-click → Open → Open
+
+  Subsequent launches are normal double-clicks.
+
+================================================================================
+  B7. SERVER HTTP API REFERENCE
 ================================================================================
 
   Base URL: http://<host>:8765
@@ -723,7 +816,7 @@
   Response (200): { "students": <count>, "uptime_s": <seconds> }
 
 ================================================================================
-  B6. AttentionMonitor PYTHON API REFERENCE
+  B8. AttentionMonitor PYTHON API REFERENCE
 ================================================================================
 
   from attention_monitor import AttentionMonitor, AttentionResult
@@ -783,7 +876,7 @@
           # result.is_attending     → smoothed bool
 
 ================================================================================
-  B7. INTEGRATION GUIDE
+  B9. INTEGRATION GUIDE
 ================================================================================
 
   The Attention Monitor is designed for extension. The server exposes a plain
@@ -830,7 +923,7 @@
   displayed directly in the dashboard without needing the HTTP server layer.
 
 ================================================================================
-  B8. CONFIGURATION REFERENCE
+  B10. CONFIGURATION REFERENCE
 ================================================================================
 
   attention_monitor.py
@@ -842,15 +935,14 @@
   │ SMOOTH_WINDOW        │ 20      │ Majority-vote buffer size (frames)         │
   └──────────────────────┴─────────┴────────────────────────────────────────────┘
 
-  attention_server.py
+  teacher/attention_server.py
   ┌──────────────────────┬─────────┬────────────────────────────────────────────┐
   │ Constant             │ Default │ Description                                │
   ├──────────────────────┼─────────┼────────────────────────────────────────────┤
   │ STUDENT_TIMEOUT_S    │ 10 s    │ Silence before a student is marked absent  │
-  │ --port               │ 8765    │ Listening port (command-line argument)     │
   └──────────────────────┴─────────┴────────────────────────────────────────────┘
 
-  student_client.py
+  student/student_client.py
   ┌──────────────────────┬─────────┬────────────────────────────────────────────┐
   │ Constant             │ Default │ Description                                │
   ├──────────────────────┼─────────┼────────────────────────────────────────────┤
@@ -858,7 +950,7 @@
   │ POLL_MS              │ 500 ms  │ Tkinter refresh rate                       │
   └──────────────────────┴─────────┴────────────────────────────────────────────┘
 
-  teacher_dashboard.py
+  teacher/teacher_dashboard.py
   ┌──────────────────────┬─────────┬────────────────────────────────────────────┐
   │ Constant             │ Default │ Description                                │
   ├──────────────────────┼─────────┼────────────────────────────────────────────┤
@@ -867,31 +959,36 @@
   └──────────────────────┴─────────┴────────────────────────────────────────────┘
 
 ================================================================================
-  B9. TROUBLESHOOTING
+  B11. TROUBLESHOOTING
 ================================================================================
 
   Dashboard shows no students
-    • Verify the server is running: curl http://localhost:8765/status
-    • Check student clients are pointed at the correct server IP and port.
+    • Verify TeacherDashboard.app is running (it starts the server automatically).
+    • Check student clients entered the correct server address.
     • Students who haven't sent a POST in >10 s are shown as absent, but they
-      still appear — "no students" means no client has ever connected.
+      still appear — "no students" means no client has ever connected this session.
 
-  Student card content not visible (blank cards)
-    This is caused by pack_propagate(False) on the inner card frame without a
-    height set — the frame collapses to 0 px. Remove pack_propagate(False) from
-    the inner frame in teacher_dashboard.py (_make_card method).
+  App won't open (first launch)
+    macOS Gatekeeper blocks unsigned apps.
+    Fix: Right-click → Open → Open (one time only per app).
 
   Camera not opening (student client)
-    • macOS: System Settings → Privacy & Security → Camera → enable Terminal
-      or the application.
+    • macOS: System Settings → Privacy & Security → Camera → enable
+      AttentionMonitor or Terminal.
     • Windows: only one app can hold the camera at a time. Use OBS Virtual
-      Camera so both the meeting app and student_client.py can access a feed.
+      Camera so both the meeting app and AttentionMonitor can access a feed.
 
-  "Server unreachable" in student client
-    • Verify the server is running on the teacher's machine.
+  "Cannot reach server" in student client
+    • Verify TeacherDashboard.app is running on the teacher's machine.
     • Check that port 8765 is not blocked by a firewall.
-    • On Windows: allow the port through Windows Defender Firewall.
-    • Try a different port: python3 attention_server.py --port 9000
+    • Ensure the student entered the correct IP address (not localhost — that
+      only works if both apps are on the same machine).
+
+  Stale students visible after restart
+    TeacherDashboard.app starts with an empty student list every launch.
+    If stale names appear, quit the app fully (Cmd+Q) and relaunch — do not
+    just close the window. Check no background Python process is left running:
+        ps aux | grep python
 
   Gaze detection is inaccurate
     • Ensure the student is well-lit from the front (no strong backlight).
@@ -900,8 +997,12 @@
     • SMOOTH_WINDOW in attention_monitor.py controls how many frames are used
       for majority voting — increase it to reduce jitter at the cost of latency.
 
+  Rebuilding the apps
+    cd student && rm -rf build dist && python3 setup.py py2app --alias
+    cd teacher && rm -rf build dist && python3 setup.py py2app --alias
+
 ================================================================================
-  B10. PRIVACY & DATA
+  B12. PRIVACY & DATA
 ================================================================================
 
   Camera data
@@ -919,20 +1020,20 @@
   ---------------
   The server holds student status in a Python dict in memory only. Nothing is
   written to disk, a database, or any external service. All data is lost when
-  the server process exits.
+  TeacherDashboard.app exits.
 
   Name handling
   --------------
-  Student names are provided by the students themselves. No authentication or
-  identity verification is performed. Names are stored only for the duration
-  of the server session.
+  Student names are provided by the students themselves via a dialog box. No
+  authentication or identity verification is performed. Names are stored only
+  for the duration of the server session.
 
 
 ================================================================================
   END OF DOCUMENTATION
 ================================================================================
 
-  Irestrem v1.1 — Built with Python 3.14, OpenCV 4.x, Tkinter
+  Irestrem v1.2 — Built with Python 3.14, OpenCV 4.x, Tkinter
   Platform: macOS (primary), Linux and Windows (supported)
 
 ================================================================================

@@ -53,18 +53,21 @@ python3 main.py
 
 ## Part 2 — Attention Monitor
 
-A lightweight classroom attention tracking system that works alongside any video conferencing app. Students run a small client that watches the webcam locally; the teacher sees a live dashboard showing each student's gaze status. No video is ever transmitted — only a tiny JSON status update every 2 seconds.
+A lightweight classroom attention tracking system that works alongside any video conferencing app (Zoom, Google Meet, Microsoft Teams). Students run a small app that watches the webcam locally; the teacher sees a live dashboard showing each student's gaze status. No video is ever transmitted — only a tiny JSON status update every 2 seconds.
+
+The system is split into two separate packages so students only receive what they need and never see the teacher's server or dashboard.
 
 ### How It Works
 
 ```
 Student machine                       Teacher machine
 ───────────────                       ───────────────
-Webcam → AttentionMonitor             attention_server.py (HTTP)
-  │  (OpenCV face + eye detection)          │
-  │  gaze_status, attention_score           │  GET /students
-  └──── POST /update (JSON) ──────────────► └──► teacher_dashboard.py
-        (no video, ~200 bytes/req)                (Tkinter grid, refreshes every 3 s)
+Webcam → AttentionMonitor             TeacherDashboard.app
+  │  (OpenCV face + eye detection)     ├─ attention_server (HTTP, port 8765)
+  │  gaze_status, attention_score      │       │  GET /students
+  └──── POST /update (JSON) ──────────►│       └──► teacher_dashboard (Tkinter grid)
+        (no video, ~200 bytes/req)      │
+                                        └─ Startup dialog shows student URL
 ```
 
 ### Gaze States
@@ -75,49 +78,33 @@ Webcam → AttentionMonitor             attention_server.py (HTTP)
 | `looking_away` | Face visible but head turned | Orange |
 | `absent` | No face detected | Red |
 
-### Running the System
+### For Students — AttentionMonitor.app
 
-**Step 1 — Start the server** (on the teacher's machine or a shared network host):
+1. Receive the `student/` folder from your teacher
+2. Double-click `student/dist/AttentionMonitor.app`
+   > First launch: Right-click → **Open** → **Open** (Gatekeeper bypass, one time only)
+3. Enter the **server address** your teacher shared (e.g. `192.168.1.10:8765`)
+4. Enter **your name**
+5. A small floating window appears — leave it running during class
 
-```bash
-python3 attention_server.py
-# Listening on port 8765
-# Prints the IP address students should use
-```
+The app uses your webcam locally. No video is sent anywhere.
 
-**Step 2 — Each student runs the client:**
+**macOS:** The webcam can be shared, so the Attention Monitor and your meeting app (Zoom, Meet, Teams) can both use it simultaneously.  
+**Windows:** Only one app can hold the camera at a time — use OBS Virtual Camera so your meeting app uses the virtual feed and Attention Monitor uses the real one.
 
-```bash
-python3 student_client.py --server http://TEACHER_IP:8765
-# A name dialog appears on first launch
-# Or pass the name directly:
-python3 student_client.py --server http://192.168.1.10:8765 --name "Alice"
-```
+### For Teachers — TeacherDashboard.app
 
-A small floating window (always on top) appears showing the student's own live status. The webcam is used locally; nothing is streamed.
+1. Double-click `teacher/dist/TeacherDashboard.app`
+2. A startup dialog shows the **address to share with students** (e.g. `192.168.1.10:8765`)
+3. Click OK — the live dashboard opens automatically
 
-**Step 3 — Teacher opens the dashboard:**
+The server starts in the background automatically. No terminal needed.
 
-```bash
-python3 teacher_dashboard.py --server http://localhost:8765
-```
-
-A dark-themed grid shows all connected students. Cards are sorted by urgency (absent → not looking → present) and update every 3 seconds.
-
-**Demo / testing** (simulates 5 students with rotating statuses):
-
-```bash
-python3 _demo_sim.py
-```
-
-### Camera note
-
-On macOS the webcam can be shared between apps simultaneously, so `student_client.py` and your meeting app can both use it at the same time.
-On Windows, only one app can hold the camera at a time — use OBS Virtual Camera so your meeting app uses the virtual feed and `student_client.py` uses the real one.
+The dashboard shows a card per connected student, sorted by urgency (absent → not looking → present), and refreshes every 3 seconds.
 
 ### Integration possibilities
 
-The server exposes a plain HTTP/JSON API, so the student client can be replaced by:
+The server exposes a plain HTTP/JSON API (`POST /update`, `GET /students`), so the student client can be replaced by:
 
 - A **browser extension** — uses `navigator.mediaDevices.getUserMedia()` and runs MediaPipe FaceMesh in-browser; works on Google Meet, Zoom Web, and Teams Web without any install
 - A **Zoom / Teams app** — embed the teacher dashboard as a side panel via the Zoom Apps SDK or Microsoft Teams Toolkit
@@ -134,7 +121,13 @@ The server exposes a plain HTTP/JSON API, so the student client can be replaced 
 | Webcam | Any camera supported by macOS AVFoundation |
 
 ```bash
+# Eye Strain Prevention app
 pip3 install -r requirements.txt
+
+# Student client
+pip3 install -r student/requirements.txt
+
+# Teacher dashboard (stdlib only — no extra packages)
 ```
 
 ---
@@ -144,15 +137,20 @@ pip3 install -r requirements.txt
 ```bash
 git clone https://github.com/sebeLonn/Irestrem.git
 cd Irestrem
-pip3 install -r requirements.txt
 ```
 
-To build the macOS `.app` bundle:
+To rebuild the macOS app bundles:
 
 ```bash
+# Eye Strain Prevention
 python3 app_icon.py
 python3 setup.py py2app --alias
-# App placed at dist/Irestrem.app
+
+# Student app
+cd student && python3 setup.py py2app --alias
+
+# Teacher app
+cd teacher && python3 setup.py py2app --alias
 ```
 
 ---
@@ -168,35 +166,48 @@ Irestrem/
 ├── detector.py           OpenCV face detection + pinhole distance estimation
 ├── tracker.py            Session timing and break scheduling
 ├── notifier.py           macOS / Linux / Windows notification dispatcher
+├── attention_monitor.py  Core gaze detection module (shared)
 ├── app_icon.py           Programmatic icon generator (PNG + ICNS)
 ├── setup.py              py2app build configuration
+├── requirements.txt      Python dependencies
 │
-│  Attention Monitor
-├── attention_monitor.py  Core gaze detection module (embeddable, OpenCV only)
-├── attention_server.py   Lightweight HTTP server — receives and serves student status
-├── student_client.py     Student-side client — webcam → gaze → POST to server
-├── teacher_dashboard.py  Teacher dashboard — live student grid (Tkinter)
-├── _demo_sim.py          Demo helper — simulates 5 students with rotating statuses
+│  Attention Monitor — Student Package
+├── student/
+│   ├── student_client.py      Student app — webcam → gaze → POST to server
+│   ├── attention_monitor.py   Core gaze detection module (copy)
+│   ├── setup.py               py2app build configuration
+│   ├── requirements.txt       opencv-python, numpy
+│   └── dist/
+│       └── AttentionMonitor.app   Double-clickable student app
+│
+│  Attention Monitor — Teacher Package
+├── teacher/
+│   ├── teacher_app.py         Combined launcher — starts server + dashboard
+│   ├── teacher_dashboard.py   Live student grid (Tkinter)
+│   ├── attention_server.py    Lightweight HTTP server
+│   ├── setup.py               py2app build configuration
+│   ├── requirements.txt       stdlib only
+│   └── dist/
+│       └── TeacherDashboard.app   Double-clickable teacher app
 │
 │  Shared
-├── requirements.txt      Python dependencies
 ├── AppIcon.icns          App icon (all macOS sizes)
 ├── AppIcon.png           App icon source (512 × 512 px)
-├── Irestrem.app/         macOS application bundle
-├── dist/                 py2app build output
-└── build/                py2app intermediate artefacts
+└── Irestrem.app/         macOS application bundle (Eye Strain Prevention)
 ```
 
 ---
 
 ## Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| `opencv-python` | Camera capture, face and eye detection |
-| `numpy` | Frame manipulation |
-| `Pillow` | PIL → ImageTk conversion, icon generation |
-| `pyobjc-framework-Cocoa` | macOS menu bar status item (NSStatusBar) |
+| Package | Purpose | Used by |
+|---------|---------|---------|
+| `opencv-python` | Camera capture, face and eye detection | Irestrem, student client |
+| `numpy` | Frame manipulation | Irestrem, student client |
+| `Pillow` | PIL → ImageTk conversion, icon generation | Irestrem |
+| `pyobjc-framework-Cocoa` | macOS menu bar status item (NSStatusBar) | Irestrem |
+
+The teacher-side server and dashboard use only Python standard library — no additional packages needed.
 
 ---
 
@@ -204,7 +215,7 @@ Irestrem/
 
 **Eye Strain Prevention:** all video is processed in memory on your local machine. No frames, images, or data are written to disk or transmitted externally.
 
-**Attention Monitor:** no video is ever transmitted. Only a small JSON payload (`name`, `status`, `attention_score`, `away_duration_s`) is sent from each student to the server every 2 seconds. The server holds this data in memory only — nothing is written to disk.
+**Attention Monitor:** no video is ever transmitted. Only a small JSON payload (`name`, `status`, `attention_score`, `away_duration_s`) is sent from each student to the server every 2 seconds. The server holds this data in memory only — nothing is written to disk. All data is lost when the server stops.
 
 ---
 

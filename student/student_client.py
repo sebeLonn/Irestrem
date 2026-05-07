@@ -1,23 +1,25 @@
 """
 Attention Monitor — Student Client
 ====================================
-Runs on the student's machine alongside any video call app
-(Zoom, Google Meet, Microsoft Teams, etc.).
-
-Monitors the webcam locally, then sends only a small JSON status
-(no video, no audio) to the teacher's server every 2 seconds.
+Run this file during your online class. It uses your webcam locally
+to detect whether you are looking at the screen, then sends only a
+small status update (no video, no audio) to your teacher's server.
 
 Usage
 -----
-    python3 student_client.py --server http://TEACHER_IP:8765
-    python3 student_client.py --server http://192.168.1.10:8765 --name "Alice"
+    python3 student_client.py
+
+You will be asked for:
+  1. The server address your teacher shared with you  (e.g. 192.168.1.10:8765)
+  2. Your name
 
 Camera note
 -----------
 On macOS the webcam can be shared between apps simultaneously, so this
-client and your meeting app can both use it at the same time.
+client and your meeting app (Zoom, Meet, Teams…) can both use it at once.
 On Windows only one app can hold the camera at a time — in that case run
-OBS Virtual Camera: Zoom uses the virtual feed, this client uses the real one.
+OBS Virtual Camera: your meeting app uses the virtual feed, this client
+uses the real one.
 """
 
 import tkinter as tk
@@ -25,7 +27,6 @@ from tkinter import simpledialog, messagebox
 import threading
 import time
 import queue
-import argparse
 import json
 import urllib.request
 
@@ -53,6 +54,43 @@ SEND_INTERVAL_S = 2    # seconds between status POSTs
 POLL_MS         = 500  # Tkinter refresh rate
 
 
+# ── Startup dialog ─────────────────────────────────────────────────────────
+
+def _ask_connection() -> tuple[str, str] | None:
+    """
+    Show two dialogs: server address, then student name.
+    Returns (server_url, name) or None if the user cancels.
+    """
+    root = tk.Tk()
+    root.withdraw()
+
+    server_raw = simpledialog.askstring(
+        'Attention Monitor — Connect',
+        'Enter the server address your teacher gave you:\n'
+        'Example: 192.168.1.10:8765',
+        parent=root,
+    )
+    if not server_raw or not server_raw.strip():
+        root.destroy()
+        return None
+
+    server_raw = server_raw.strip()
+    if not server_raw.startswith('http'):
+        server_raw = 'http://' + server_raw
+
+    name = simpledialog.askstring(
+        'Attention Monitor — Your Name',
+        'Enter your name (as the teacher will see it):',
+        parent=root,
+    )
+    root.destroy()
+
+    if not name or not name.strip():
+        return None
+
+    return server_raw, name.strip()
+
+
 # ── Student client ─────────────────────────────────────────────────────────
 
 class StudentClient:
@@ -69,7 +107,7 @@ class StudentClient:
         self.root.title(f'Attention Monitor — {name}')
         self.root.configure(bg=BG2)
         self.root.resizable(False, False)
-        self.root.attributes('-topmost', True)  # float above meeting window
+        self.root.attributes('-topmost', True)
         self.root.geometry('280x90')
 
         self._build_ui()
@@ -103,7 +141,7 @@ class StudentClient:
                                      font=('Helvetica', 8), fg=FG_DIM, bg=BG2)
         self._server_lbl.pack(side='bottom', pady=(0, 5))
 
-    # ── Camera thread (opened in background to avoid NSRunLoop conflict) ──
+    # ── Camera thread ─────────────────────────────────────────────────────
 
     def _start_camera(self) -> None:
         self._running = True
@@ -127,7 +165,7 @@ class StudentClient:
                 continue
             frame   = cv2.flip(frame, 1)
             frame_n += 1
-            if frame_n % 2 == 0:          # analyse every 2nd frame
+            if frame_n % 2 == 0:
                 result = self._monitor.process_frame(frame)
                 if not self._queue.full():
                     self._queue.put(result)
@@ -157,10 +195,10 @@ class StudentClient:
                     )
                     urllib.request.urlopen(req, timeout=3)
                     self.root.after(0, lambda: self._server_lbl.config(
-                        text=f'Connected: {self._server}', fg='#44bb44'))
+                        text='Connected to teacher server', fg='#44bb44'))
                 except Exception:
                     self.root.after(0, lambda: self._server_lbl.config(
-                        text='Server unreachable', fg=ACCENT))
+                        text='Cannot reach server — retrying…', fg=ACCENT))
             time.sleep(SEND_INTERVAL_S)
 
     # ── Main thread poll ──────────────────────────────────────────────────
@@ -186,32 +224,13 @@ class StudentClient:
         self.root.mainloop()
 
 
-# ── Name dialog ─────────────────────────────────────────────────────────────
-
-def _ask_name(server_url: str) -> str | None:
-    root = tk.Tk()
-    root.withdraw()
-    name = simpledialog.askstring(
-        'Attention Monitor',
-        f'Enter your name:\n(server: {server_url})',
-        parent=root,
-    )
-    root.destroy()
-    return (name or '').strip() or None
-
-
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Attention Monitor — Student client')
-    parser.add_argument('--server', default='http://localhost:8765',
-                        help='Teacher server URL')
-    parser.add_argument('--name', default='', help='Your name (skips the dialog)')
-    args = parser.parse_args()
+    result = _ask_connection()
+    if result is None:
+        print('Cancelled.')
+        raise SystemExit(0)
 
-    name = args.name.strip() or _ask_name(args.server)
-    if not name:
-        print('No name entered. Exiting.')
-        raise SystemExit(1)
-
-    StudentClient(args.server, name).run()
+    server_url, name = result
+    StudentClient(server_url, name).run()

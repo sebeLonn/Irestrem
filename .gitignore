@@ -13,11 +13,17 @@ __pycache__/
 build/
 dist/
 
-# macOS .app bundle (built locally, contains absolute paths to local Python)
+# macOS .app bundles (built locally, contain absolute paths to local Python)
 Irestrem.app/
+student/dist/
+student/build/
+teacher/dist/
+teacher/build/
 
-# Generated icon — recreate with: python3 app_icon.py
+# Generated icons — recreate with: python3 app_icon.py
 AppIcon.icns
+student/AppIcon.icns
+teacher/AppIcon.icns
 
 # Claude Code internal memory (private)
 .claude/
