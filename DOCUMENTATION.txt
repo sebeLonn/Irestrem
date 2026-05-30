@@ -144,6 +144,9 @@
     Pillow >= 10.0.0
     pyobjc-framework-Cocoa >= 9.0  (macOS only — enables menu bar status item)
 
+  Student client additional package (student/requirements.txt):
+    certifi >= 2024.0.0  (SSL certificate bundle for HTTPS connections)
+
 ================================================================================
   A4. INSTALLATION
 ================================================================================
@@ -611,21 +614,29 @@
   ──────────────────────────────────────────────────────────────────────────────
 
   Runs on the student's machine alongside any meeting app. Presents two
-  dialog boxes on launch (server address and student name), then opens the
-  webcam in a background thread, processes every other frame through
-  AttentionMonitor, and sends a JSON status POST to the server every 2
-  seconds from a second background thread.
+  dialog boxes on launch (server address and student name), then drives
+  the webcam from the Tkinter main thread and sends a JSON status POST to
+  the server every 2 seconds from a background sender thread.
 
   No command-line arguments are required. Students simply double-click
   AttentionMonitor.app and fill in the dialogs.
 
   Threading model
   ~~~~~~~~~~~~~~~~
-  • Camera thread: cv2.VideoCapture opened here (NSRunLoop rule — same as
-    the Irestrem app). Pushes AttentionResult objects into a queue (maxsize=5).
-  • Sender thread: reads self._latest (set by poll), sends POST every 2 s.
-  • Main thread: Tkinter mainloop + root.after(500, _poll) drains the queue
-    and updates the UI labels.
+  • Main thread: Tkinter mainloop. Camera driven via root.after(33,
+    _camera_step) — one frame read per tick. Detection runs on every
+    second frame; the UI dot and status label are updated immediately.
+    Using root.after() instead of a background thread avoids an
+    AVFoundation / NSRunLoop conflict on Apple Silicon Macs.
+  • Sender thread: reads self._latest, POSTs a JSON status every 2 s.
+    Defaults to HTTPS; uses an unverified SSL context so local-network
+    servers work without a certificate.
+
+  Connection
+  ~~~~~~~~~~~
+  If the student enters a bare host:port address (no scheme), the client
+  prepends https:// automatically. This allows the same address format the
+  teacher shares to work whether the server uses TLS or not.
 
   UI
   ~~~
@@ -681,6 +692,8 @@
   alphabetically within each group.
 
   Header summary: coloured dot counts per status ("● 3 present", etc.).
+  "Clear All Students" button (header, right side): calls GET /clear to
+  remove all students from server memory without restarting anything.
   Footer: server URL (left) and last-updated timestamp (right).
 
 ================================================================================
@@ -815,6 +828,16 @@
 
   Response (200): { "students": <count>, "uptime_s": <seconds> }
 
+  ┌─────────────────────────────────────────────────────────────────────────────
+  │ GET /clear
+  └─────────────────────────────────────────────────────────────────────────────
+  Remove all students from the in-memory store.
+  Useful for resetting the dashboard mid-session without restarting.
+
+  Response (200): { "ok": true }
+
+  Also available from the dashboard UI via the "Clear All Students" button.
+
 ================================================================================
   B8. AttentionMonitor PYTHON API REFERENCE
 ================================================================================
@@ -947,7 +970,7 @@
   │ Constant             │ Default │ Description                                │
   ├──────────────────────┼─────────┼────────────────────────────────────────────┤
   │ SEND_INTERVAL_S      │ 2 s     │ Seconds between status POSTs               │
-  │ POLL_MS              │ 500 ms  │ Tkinter refresh rate                       │
+  │ camera after() rate  │ 33 ms   │ Tkinter camera tick (≈ 30 fps)             │
   └──────────────────────┴─────────┴────────────────────────────────────────────┘
 
   teacher/teacher_dashboard.py
@@ -1033,7 +1056,7 @@
   END OF DOCUMENTATION
 ================================================================================
 
-  Irestrem v1.2 — Built with Python 3.14, OpenCV 4.x, Tkinter
-  Platform: macOS (primary), Linux and Windows (supported)
+  Irestrem v1.2.0 — Built with Python 3.9+, OpenCV 4.x, Tkinter
+  Platform: macOS (primary), Linux and Windows (partial support)
 
 ================================================================================

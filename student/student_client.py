@@ -26,9 +26,9 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 import threading
 import time
-import queue
 import json
 import urllib.request
+import ssl
 
 import cv2
 from attention_monitor import AttentionMonitor, AttentionResult
@@ -76,7 +76,7 @@ def _ask_connection() -> tuple[str, str] | None:
 
     server_raw = server_raw.strip()
     if not server_raw.startswith('http'):
-        server_raw = 'http://' + server_raw
+        server_raw = 'https://' + server_raw
 
     name = simpledialog.askstring(
         'Attention Monitor — Your Name',
@@ -99,7 +99,6 @@ class StudentClient:
         self._name   = name
 
         self._monitor = AttentionMonitor()
-        self._queue: queue.Queue = queue.Queue(maxsize=5)
         self._latest: AttentionResult | None = None
         self._running = False
 
@@ -110,10 +109,13 @@ class StudentClient:
         self.root.attributes('-topmost', True)
         self.root.geometry('280x90')
 
+        self._cap = None
+        self._frame_n = 0
+        self._running = True
+
         self._build_ui()
-        self._start_camera()
         self._start_sender()
-        self._poll()
+        self.root.after(100, self._camera_step)
         self.root.protocol('WM_DELETE_WINDOW', self._on_close)
 
     # ── UI ────────────────────────────────────────────────────────────────
@@ -141,35 +143,35 @@ class StudentClient:
                                      font=('Helvetica', 8), fg=FG_DIM, bg=BG2)
         self._server_lbl.pack(side='bottom', pady=(0, 5))
 
-    # ── Camera thread ─────────────────────────────────────────────────────
+    # ── Camera (main thread via after()) ──────────────────────────────────
 
-    def _start_camera(self) -> None:
-        self._running = True
-        threading.Thread(target=self._camera_loop, daemon=True).start()
-
-    def _camera_loop(self) -> None:
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            self.root.after(0, lambda: messagebox.showerror(
-                'Camera Error', 'Cannot open the webcam.'))
+    def _camera_step(self) -> None:
+        if not self._running:
             return
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH,  320)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-        cap.set(cv2.CAP_PROP_FPS, 30)
 
-        frame_n = 0
-        while self._running:
-            ret, frame = cap.read()
-            if not ret:
-                time.sleep(0.05)
-                continue
-            frame   = cv2.flip(frame, 1)
-            frame_n += 1
-            if frame_n % 2 == 0:
+        if self._cap is None or not self._cap.isOpened():
+            self._cap = cv2.VideoCapture(0)
+            if not self._cap.isOpened():
+                self.root.after(1000, self._camera_step)
+                return
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH,  320)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+            self._cap.set(cv2.CAP_PROP_FPS, 30)
+
+        ret, frame = self._cap.read()
+        if ret:
+            frame = cv2.flip(frame, 1)
+            self._frame_n += 1
+            if self._frame_n % 2 == 0:
                 result = self._monitor.process_frame(frame)
-                if not self._queue.full():
-                    self._queue.put(result)
-        cap.release()
+                self._latest = result
+                color = STATUS_COLORS.get(result.gaze_status, FG_DIM)
+                self._dot.config(fg=color)
+                self._status_lbl.config(
+                    text=STATUS_LABELS.get(result.gaze_status, result.gaze_status),
+                    fg=color)
+
+        self.root.after(33, self._camera_step)
 
     # ── Sender thread ─────────────────────────────────────────────────────
 
@@ -193,7 +195,8 @@ class StudentClient:
                         headers = {'Content-Type': 'application/json'},
                         method  = 'POST',
                     )
-                    urllib.request.urlopen(req, timeout=3)
+                    ssl_ctx = ssl._create_unverified_context()
+                    urllib.request.urlopen(req, timeout=3, context=ssl_ctx)
                     self.root.after(0, lambda: self._server_lbl.config(
                         text='Connected to teacher server', fg='#44bb44'))
                 except Exception:
@@ -201,23 +204,10 @@ class StudentClient:
                         text='Cannot reach server — retrying…', fg=ACCENT))
             time.sleep(SEND_INTERVAL_S)
 
-    # ── Main thread poll ──────────────────────────────────────────────────
-
-    def _poll(self) -> None:
-        while not self._queue.empty():
-            self._latest = self._queue.get_nowait()
-
-        r = self._latest
-        if r is not None:
-            color = STATUS_COLORS.get(r.gaze_status, FG_DIM)
-            self._dot.config(fg=color)
-            self._status_lbl.config(
-                text=STATUS_LABELS.get(r.gaze_status, r.gaze_status), fg=color)
-
-        self.root.after(POLL_MS, self._poll)
-
     def _on_close(self) -> None:
         self._running = False
+        if self._cap:
+            self._cap.release()
         self.root.destroy()
 
     def run(self) -> None:

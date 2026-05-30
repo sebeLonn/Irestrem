@@ -80,6 +80,11 @@ class _Handler(BaseHTTPRequestHandler):
         elif self.path == '/status':
             self._send(200, {'students': len(_students), 'uptime_s': round(time.time() - _START, 1)})
 
+        elif self.path == '/clear':
+            with _lock:
+                _students.clear()
+            self._send(200, {'ok': True})
+
         else:
             self._send(404, {'error': 'not found'})
 

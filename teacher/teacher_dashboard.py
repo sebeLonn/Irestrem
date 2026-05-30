@@ -81,6 +81,14 @@ class TeacherDashboard:
                                     font=('Helvetica', 10), fg=FG_DIM, bg=BG2)
         self._count_lbl.pack(side='right', padx=16)
 
+        tk.Button(hdr, text='Clear All Students',
+                  command=self._clear_students,
+                  bg='#3a3a5a', fg=FG_DIM,
+                  font=('Helvetica', 9), relief='flat',
+                  cursor='hand2', padx=10, pady=4,
+                  activebackground='#555570', activeforeground=FG,
+                  ).pack(side='right', padx=8)
+
         # Summary dots
         self._summary_frame = tk.Frame(hdr, bg=BG2)
         self._summary_frame.pack(side='right', padx=8)
@@ -127,6 +135,12 @@ class TeacherDashboard:
         self._updated_lbl.pack(side='right', padx=12)
 
     # ── Refresh cycle ─────────────────────────────────────────────────────────
+
+    def _clear_students(self) -> None:
+        try:
+            urllib.request.urlopen(f'{self._server}/clear', timeout=5)
+        except Exception:
+            pass
 
     def _schedule_refresh(self) -> None:
         threading.Thread(target=self._fetch, daemon=True).start()

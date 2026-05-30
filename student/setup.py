@@ -8,15 +8,16 @@ OPTIONS = {
         'CFBundleName': 'AttentionMonitor',
         'CFBundleDisplayName': 'Attention Monitor',
         'CFBundleIdentifier': 'com.irestrem.student',
-        'CFBundleVersion': '1.0.0',
+        'CFBundleVersion': '1.2.0',
         'NSHighResolutionCapable': True,
         'NSCameraUsageDescription':
             'Attention Monitor uses your camera to detect whether you are looking at the screen.',
     },
-    'packages': ['cv2', 'numpy', 'attention_monitor'],
+    'packages': ['cv2', 'numpy', 'attention_monitor', 'certifi'],
     'includes': ['tkinter', 'queue', 'threading', 'json', 'urllib.request',
                  'dataclasses', 'collections'],
     'excludes': ['matplotlib', 'scipy', 'pandas', 'PIL', 'Pillow'],
+    'strip': False,
 }
 
 setup(

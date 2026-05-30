@@ -8,7 +8,7 @@ OPTIONS = {
         'CFBundleName': 'TeacherDashboard',
         'CFBundleDisplayName': 'Teacher Dashboard',
         'CFBundleIdentifier': 'com.irestrem.teacher',
-        'CFBundleVersion': '1.0.0',
+        'CFBundleVersion': '1.2.0',
         'NSHighResolutionCapable': True,
     },
     'packages': ['attention_server', 'teacher_dashboard'],

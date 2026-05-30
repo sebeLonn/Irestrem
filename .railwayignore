@@ -1,0 +1,9 @@
+student/dist
+student/build
+teacher/dist
+teacher/build
+build
+dist
+*.app
+__pycache__
+*.pyc

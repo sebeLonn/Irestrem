@@ -1,5 +1,7 @@
 # Irestrem
 
+**Version 1.2** &nbsp;|&nbsp; macOS &nbsp;|&nbsp; Python 3.9+ &nbsp;|&nbsp; MIT License
+
 A macOS toolkit with two complementary tools for healthier, more focused screen use:
 
 1. **Eye Strain Prevention** — monitors how close you sit to your screen and schedules 20-20-20 eye breaks automatically
@@ -100,11 +102,24 @@ The app uses your webcam locally. No video is sent anywhere.
 
 The server starts in the background automatically. No terminal needed.
 
-The dashboard shows a card per connected student, sorted by urgency (absent → not looking → present), and refreshes every 3 seconds.
+The dashboard shows a card per connected student, sorted by urgency (absent → not looking → present), and refreshes every 3 seconds. Use the **Clear All Students** button in the header to reset the list mid-session without restarting.
+
+### Server API
+
+The server exposes a plain HTTP/JSON API on port 8765:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/update` | POST | Register or update a student's status |
+| `/students` | GET | Return all current student statuses |
+| `/status` | GET | Server health check (student count + uptime) |
+| `/clear` | GET | Remove all students from memory |
+
+Because CORS headers are set on all responses, a browser-based dashboard or extension can call the API directly with no proxy needed.
 
 ### Integration possibilities
 
-The server exposes a plain HTTP/JSON API (`POST /update`, `GET /students`), so the student client can be replaced by:
+The student client can be replaced by:
 
 - A **browser extension** — uses `navigator.mediaDevices.getUserMedia()` and runs MediaPipe FaceMesh in-browser; works on Google Meet, Zoom Web, and Teams Web without any install
 - A **Zoom / Teams app** — embed the teacher dashboard as a side panel via the Zoom Apps SDK or Microsoft Teams Toolkit
@@ -176,7 +191,7 @@ Irestrem/
 │   ├── student_client.py      Student app — webcam → gaze → POST to server
 │   ├── attention_monitor.py   Core gaze detection module (copy)
 │   ├── setup.py               py2app build configuration
-│   ├── requirements.txt       opencv-python, numpy
+│   ├── requirements.txt       opencv-python, numpy, certifi
 │   └── dist/
 │       └── AttentionMonitor.app   Double-clickable student app
 │
@@ -191,6 +206,7 @@ Irestrem/
 │       └── TeacherDashboard.app   Double-clickable teacher app
 │
 │  Shared
+├── CHANGELOG.md          Version history
 ├── AppIcon.icns          App icon (all macOS sizes)
 ├── AppIcon.png           App icon source (512 × 512 px)
 └── Irestrem.app/         macOS application bundle (Eye Strain Prevention)
@@ -206,6 +222,7 @@ Irestrem/
 | `numpy` | Frame manipulation | Irestrem, student client |
 | `Pillow` | PIL → ImageTk conversion, icon generation | Irestrem |
 | `pyobjc-framework-Cocoa` | macOS menu bar status item (NSStatusBar) | Irestrem |
+| `certifi` | SSL certificate bundle for HTTPS connections | Student client |
 
 The teacher-side server and dashboard use only Python standard library — no additional packages needed.
 
@@ -216,6 +233,12 @@ The teacher-side server and dashboard use only Python standard library — no ad
 **Eye Strain Prevention:** all video is processed in memory on your local machine. No frames, images, or data are written to disk or transmitted externally.
 
 **Attention Monitor:** no video is ever transmitted. Only a small JSON payload (`name`, `status`, `attention_score`, `away_duration_s`) is sent from each student to the server every 2 seconds. The server holds this data in memory only — nothing is written to disk. All data is lost when the server stops.
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ---
 

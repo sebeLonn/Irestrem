@@ -9,7 +9,7 @@ OPTIONS = {
         'CFBundleName': 'Irestrem',
         'CFBundleDisplayName': 'Irestrem',
         'CFBundleIdentifier': 'com.irestrem.app',
-        'CFBundleVersion': '1.0.0',
+        'CFBundleVersion': '1.2.0',
         'NSHighResolutionCapable': True,
         'NSCameraUsageDescription':
             'Irestrem uses the camera to measure your distance from the screen.',
@@ -18,6 +18,7 @@ OPTIONS = {
     'includes': ['tkinter', 'queue', 'threading', 'platform', 'subprocess',
                  'pathlib', 'collections', 'dataclasses'],
     'excludes': ['matplotlib', 'scipy', 'pandas'],
+    'strip': False,
 }
 
 setup(
