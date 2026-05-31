@@ -179,29 +179,31 @@ class StudentClient:
         threading.Thread(target=self._sender_loop, daemon=True).start()
 
     def _sender_loop(self) -> None:
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+
         while self._running:
             result = self._latest
-            if result is not None:
-                payload = json.dumps({
-                    'name':            self._name,
-                    'status':          result.gaze_status,
-                    'attention_score': result.attention_score,
-                    'away_duration_s': result.away_duration_s,
-                }).encode()
-                try:
-                    req = urllib.request.Request(
-                        f'{self._server}/update',
-                        data    = payload,
-                        headers = {'Content-Type': 'application/json'},
-                        method  = 'POST',
-                    )
-                    ssl_ctx = ssl._create_unverified_context()
-                    urllib.request.urlopen(req, timeout=3, context=ssl_ctx)
-                    self.root.after(0, lambda: self._server_lbl.config(
-                        text='Connected to teacher server', fg='#44bb44'))
-                except Exception:
-                    self.root.after(0, lambda: self._server_lbl.config(
-                        text='Cannot reach server — retrying…', fg=ACCENT))
+            payload = json.dumps({
+                'name':            self._name,
+                'status':          result.gaze_status if result else 'absent',
+                'attention_score': result.attention_score if result else 0.0,
+                'away_duration_s': result.away_duration_s if result else 0.0,
+            }).encode()
+            try:
+                req = urllib.request.Request(
+                    f'{self._server}/update',
+                    data    = payload,
+                    headers = {'Content-Type': 'application/json'},
+                    method  = 'POST',
+                )
+                urllib.request.urlopen(req, timeout=5, context=ssl_ctx)
+                self.root.after(0, lambda: self._server_lbl.config(
+                    text='Connected to teacher server', fg='#44bb44'))
+            except Exception:
+                self.root.after(0, lambda: self._server_lbl.config(
+                    text='Cannot reach server — retrying…', fg=ACCENT))
             time.sleep(SEND_INTERVAL_S)
 
     def _on_close(self) -> None:
