@@ -9,24 +9,28 @@ __pycache__/
 *.pyo
 *.pyd
 
-# py2app build artifacts (machine-specific, regenerate with: python3 setup.py py2app --alias)
+# py2app build artifacts (regenerate with: python3 setup.py py2app --alias)
 build/
 dist/
 
 # macOS .app bundles (built locally, contain absolute paths to local Python)
+*.app/
 Irestrem.app/
 student/dist/
 student/build/
 teacher/dist/
 teacher/build/
 
+# PyInstaller
+*.spec
+
+# Shell launchers (replaced by .app bundles)
+*.command
+
 # Generated icons — recreate with: python3 app_icon.py
 AppIcon.icns
 student/AppIcon.icns
 teacher/AppIcon.icns
-
-# Claude Code internal memory (private)
-.claude/
 
 # Crash reports
 *.ips
