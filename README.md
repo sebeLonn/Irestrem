@@ -62,14 +62,14 @@ The system is split into two separate packages so students only receive what the
 ### How It Works
 
 ```
-Student machine                       Teacher machine
-───────────────                       ───────────────
-Webcam → AttentionMonitor             TeacherDashboard.app
-  │  (OpenCV face + eye detection)     ├─ attention_server (HTTP, port 8765)
-  │  gaze_status, attention_score      │       │  GET /students
-  └──── POST /update (JSON) ──────────►│       └──► teacher_dashboard (Tkinter grid)
-        (no video, ~200 bytes/req)      │
-                                        └─ Startup dialog shows student URL
+Student machine                       Cloud (Railway)           Teacher machine
+───────────────                       ───────────────           ───────────────
+Webcam → AttentionMonitor             attention_server          TeacherDashboard.app
+  │  (OpenCV face + eye detection)    (HTTPS, always on)    ┌── Enter server URL
+  │  gaze_status, attention_score           │  GET /students │   on launch
+  └──── POST /update (JSON, HTTPS) ────────►│               ─┘
+        (no video, ~200 bytes/req)           └──────────────►  teacher_dashboard
+                                                               (Tkinter grid)
 ```
 
 ### Gaze States
@@ -85,7 +85,7 @@ Webcam → AttentionMonitor             TeacherDashboard.app
 1. Receive the `student/` folder from your teacher
 2. Double-click `student/dist/AttentionMonitor.app`
    > First launch: Right-click → **Open** → **Open** (Gatekeeper bypass, one time only)
-3. Enter the **server address** your teacher shared (e.g. `192.168.1.10:8765`)
+3. Enter the **server address** your teacher shared (e.g. `your-server.up.railway.app`)
 4. Enter **your name**
 5. A small floating window appears — leave it running during class
 
@@ -97,16 +97,16 @@ The app uses your webcam locally. No video is sent anywhere.
 ### For Teachers — TeacherDashboard.app
 
 1. Double-click `teacher/dist/TeacherDashboard.app`
-2. A startup dialog shows the **address to share with students** (e.g. `192.168.1.10:8765`)
-3. Click OK — the live dashboard opens automatically
+2. Enter your **server address** in the startup dialog (e.g. `your-server.up.railway.app`)
+3. Click **Connect** — the live dashboard opens automatically
 
-The server starts in the background automatically. No terminal needed.
+The dashboard connects to the online server — no local server needs to run. No terminal needed.
 
 The dashboard shows a card per connected student, sorted by urgency (absent → not looking → present), and refreshes every 3 seconds. Use the **Clear All Students** button in the header to reset the list mid-session without restarting.
 
 ### Server API
 
-The server exposes a plain HTTP/JSON API on port 8765:
+The server is deployed online (Railway) and exposes a plain HTTP/JSON API:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -197,7 +197,7 @@ Irestrem/
 │
 │  Attention Monitor — Teacher Package
 ├── teacher/
-│   ├── teacher_app.py         Combined launcher — starts server + dashboard
+│   ├── teacher_app.py         Launcher — enter server URL, opens dashboard
 │   ├── teacher_dashboard.py   Live student grid (Tkinter)
 │   ├── attention_server.py    Lightweight HTTP server
 │   ├── setup.py               py2app build configuration
